@@ -1,0 +1,19 @@
+syntax: glob
+
+__pycache__
+*.pyc
+*.pyo
+
+Generated/*
+
+Activate.cmd
+Activate.*.cmd
+Activate.ps1
+Activate.*.ps1
+Activate.sh
+Activate.*.sh
+
+.coverage
+coverage.xml
+
+.vscode/*
