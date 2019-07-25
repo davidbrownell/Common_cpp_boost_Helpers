@@ -116,20 +116,26 @@ def GetDependencies():
         # Windows. Only support the current architecture.
         architectures = [CurrentShell.Architecture]
 
-        # No compilers on Linux for nows
+        # No compilers on Linux for now
         compiler_factories = []
 
     d = OrderedDict()
 
     for boost_version in ["1.70.0"]:
         d[boost_version] = Configuration(
-            "boost {}".format(boost_version),
+            "boost {} (No compiler dependencies)".format(boost_version),
             [
                 Dependency(
                     "407DD743110A4FB1871AEF60CBEC99A0",
                     "Common_cpp_boost_{}".format(boost_version),
                     "standard",
                     "https://github.com/davidbrownell/Common_cpp_boost_{}.git".format(boost_version),
+                ),
+                Dependency(
+                    "398F6BEC057C4FE4B724153DF4EB8AE4",
+                    "Common_cpp_Helpers",
+                    "standard",
+                    "https://github.com/davidbrownell/Common_cpp_Helpers.git",
                 ),
             ],
         )
@@ -149,6 +155,12 @@ def GetDependencies():
                             "Common_cpp_boost_{}".format(boost_version),
                             "{}-{}".format(config_name, architecture),
                             "https://github.com/davidbrownell/Common_cpp_boost_{}.git".format(boost_version),
+                        ),
+                        Dependency(
+                            "398F6BEC057C4FE4B724153DF4EB8AE4",
+                            "Common_cpp_Helpers",
+                            "standard",
+                            "https://github.com/davidbrownell/Common_cpp_Helpers.git",
                         ),
                         Dependency(
                             repo_id,
