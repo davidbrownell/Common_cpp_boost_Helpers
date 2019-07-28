@@ -9,6 +9,7 @@ if(NOT WIN32)
 endif()
 
 set(CppCommon_STATIC_CRT ON CACHE BOOL "" FORCE)
+set(CppCommon_NO_ADDRESS_SPACE_LAYOUT_RANDOMIZATION ON CACHE BOOL "" FORCE)
 
 include(CppCommon)
 include(CommonHelpers)
@@ -24,12 +25,13 @@ foreach(_name IN ITEMS
     Serialization_UnitTest
 )
     add_executable(${_name} ${_name}.cpp)
-    
+
     target_include_directories(${_name} PRIVATE ${_includes})
     target_link_directories(${_name} PRIVATE ${_libs})
-    
+
     target_link_libraries(${_name} CommonHelpers)
+
     target_link_libraries(${_name} ${Boost_LIBRARIES})
-    
+
     add_test(NAME ${_name} COMMAND ${_name} --success)
 endforeach()

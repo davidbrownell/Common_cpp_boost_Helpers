@@ -49,7 +49,7 @@ template <typename OArchiveT, typename IArchiveT, typename T>
 void TestImplArchive(T const &value, ComparisonFunc<T> comparison_func=nullptr) {
     std::ostringstream                      out;
 
-    value.Serialize<OArchiveT>(out);
+    value.template Serialize<OArchiveT>(out);
     out.flush();
 
     std::string                             result(out.str());
@@ -75,7 +75,7 @@ template <typename BaseT, typename OArchiveT, typename IArchiveT, typename T>
 void PtrTestImplArchive(T const &value, ComparisonFunc<T> comparison_func=nullptr) {
     std::ostringstream                      out;
 
-    value.SerializePtr<OArchiveT>(out);
+    value.template SerializePtr<OArchiveT>(out);
     out.flush();
 
     std::string                             result(out.str());
@@ -252,6 +252,8 @@ struct AbstractObj : public BaseObj {
     bool const b;
 
     CONSTRUCTOR(AbstractObj, MEMBERS(b), BASES(BaseObj), FLAGS(CONSTRUCTOR_BASES_BEFORE_MEMBERS));
+    NON_COPYABLE(AbstractObj);
+    NON_MOVABLE(AbstractObj);
     COMPARE(AbstractObj, MEMBERS(b), BASES(BaseObj));
     SERIALIZATION(AbstractObj, MEMBERS(b), BASES(BaseObj), FLAGS(SERIALIZATION_DATA_ONLY));
 
@@ -266,10 +268,10 @@ struct Derived1Obj : public AbstractObj {
     COMPARE(Derived1Obj, MEMBERS(c), BASES(AbstractObj));
     SERIALIZATION(Derived1Obj, MEMBERS(c), BASES(AbstractObj), FLAGS(SERIALIZATION_POLYMORPHIC(BaseObj)));
 
-    virtual ~Derived1Obj(void) = default;
+    ~Derived1Obj(void) override = default;
 
-    virtual void Method1(void) const override {}
-    virtual void Method2(void) const override {}
+    void Method1(void) const override {}
+    void Method2(void) const override {}
 };
 
 SERIALIZATION_POLYMORPHIC_DECLARE(Derived1Obj);
@@ -282,10 +284,10 @@ struct Derived2Obj : public AbstractObj {
     COMPARE(Derived2Obj, MEMBERS(d), BASES(AbstractObj));
     SERIALIZATION(Derived2Obj, MEMBERS(d), BASES(AbstractObj), FLAGS(SERIALIZATION_POLYMORPHIC(BaseObj)));
 
-    virtual ~Derived2Obj(void) = default;
+    ~Derived2Obj(void) override = default;
 
-    virtual void Method1(void) const override {}
-    virtual void Method2(void) const override {}
+    void Method1(void) const override {}
+    void Method2(void) const override {}
 };
 
 SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(Derived2Obj);

@@ -331,10 +331,10 @@ namespace Serialization {
     inline static void SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() (void);                                                                                       \
     static void SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() (void);                                                                                               \
                                                                                                                                                                         \
-    virtual void RegisterSerializationTypes(void) const                                                                                                                 \
+    BOOST_PP_IIF(IsAbstract, BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)() void RegisterSerializationTypes(void) const BOOST_PP_IIF(IsAbstract, BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))() \
         BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Register_Abstract, SERIALIZATION_Invoke_PtrMethods_Regster_Concrete)(Name, PolymorphicBaseName)        \
                                                                                                                                                                         \
-    virtual PolymorphicSerializationPODUniquePtr __CreateSerializationPODPtrImpl(PolymorphicBaseName const &base) const                                                 \
+    BOOST_PP_IIF(IsAbstract, BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)() PolymorphicSerializationPODUniquePtr __CreateSerializationPODPtrImpl(PolymorphicBaseName const &base) const BOOST_PP_IIF(IsAbstract, BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))() \
         BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Create_Abstract, SERIALIZATION_Invoke_PtrMethods_Create_NotAbstract)(Name, PolymorphicBaseName)        \
                                                                                                                                                                         \
     PolymorphicSerializationPODUniquePtr CreateSerializationPODPtr(PolymorphicBaseName const &base) const {                                                             \
@@ -564,7 +564,7 @@ namespace Serialization {
         DeserializeData * const                         _pDeserializeData = nullptr;                                                                                                                \
                                                                                                                                                                                                     \
         DeserializeData MoveDeserializeData(void) {                                                                                                                                                 \
-            if(_deserialize_data_storage == false)                                                                                                                                                  \
+            if(!_deserialize_data_storage)                                                                                                                                                  \
                 throw std::logic_error("DeserializeData has already been moved or never existed");                                                                                                  \
                                                                                                                                                                                                     \
             DeserializeData                 result(std::move(*_deserialize_data_storage));                                                                                                          \
@@ -697,7 +697,7 @@ namespace Serialization {
     };
 
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMembers(Name, Members)                BOOST_PP_TUPLE_FOR_EACH(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMembers_Macro, Name, Members)
-#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMembers_Macro(r, Name, Member)        BoostCommon::Serialization::Details::SerializeDataType<decltype(Name::Member)> const Member;
+#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMembers_Macro(r, Name, Member)        std::add_const_t<BoostCommon::Serialization::Details::SerializeDataType<decltype(Name::Member)>> Member;
 
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor(Members)                         : BOOST_PP_TUPLE_FOR_EACH_ENUM(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor_Macro, _, Members)
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor_Macro(r, _, Member)              Member(obj.Member)
