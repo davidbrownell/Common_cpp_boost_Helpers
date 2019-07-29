@@ -106,13 +106,6 @@ def GetDependencies():
                 None,
             ),
             lambda: (
-                "MSVC-2017",
-                "Common_cpp_MSVC_2017",
-                "8FC8ACE80A594D2EA996CAC5DBFFEBBC",
-                "MSVC 2017",
-                None,
-            ),
-            lambda: (
                 "Clang-8",
                 "Common_cpp_Clang_8",
                 "3DE9F3430E494A6C8429B26A1503C895",
