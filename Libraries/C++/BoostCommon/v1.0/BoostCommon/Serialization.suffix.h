@@ -98,7 +98,7 @@ namespace {
 template <typename ArchiveT, typename T>
 void serialize_impl(
     ArchiveT &,
-    T,
+    T &,
     version_type,
     BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_PODBased
 ) {
@@ -116,7 +116,7 @@ void serialize_impl(
 }
 
 // This overload registers derived types when saving via a base-class pointer. By registering
-// the type, we ensure that the archive can instantiate the correct derived type during 
+// the type, we ensure that the archive can instantiate the correct derived type during
 // deserialization. Note that this must happen here (where the raw pointer is wrapped by
 // a name-value pair), as the archive won't invoke the functionality when the value is
 // extracted from the nvp.
