@@ -97,7 +97,7 @@ def GetDependencies():
     if CurrentShell.CategoryName == "Windows":
         architectures = ["x64", "x86"]
 
-        compilers = [
+        compiler_infos = [
             ("MSVC-2019", None),
             # ("Clang-8", None),
             ("Clang-8", "-ex"),
@@ -134,7 +134,7 @@ def GetDependencies():
             ],
         )
 
-        for config_name, architecture_configuration_suffix in compilers:
+        for config_name, architecture_configuration_suffix in compiler_infos:
             architecture_configuration_suffix = architecture_configuration_suffix or ""
 
             for architecture in architectures:
