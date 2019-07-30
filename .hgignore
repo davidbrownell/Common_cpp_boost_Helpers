@@ -17,3 +17,4 @@ Activate.*.sh
 coverage.xml
 
 .vscode/*
+**/build/*

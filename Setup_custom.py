@@ -97,36 +97,20 @@ def GetDependencies():
     if CurrentShell.CategoryName == "Windows":
         architectures = ["x64", "x86"]
 
-        compiler_factories = [
-            lambda: (
-                "MSVC-2019",
-                "Common_cpp_MSVC_2019",
-                "AB7D87C49C2449F79D9F42E5195030FD",
-                "MSVC 2019",
-                None,
-            ),
-            lambda: (
-                "Clang-8",
-                "Common_cpp_Clang_8",
-                "3DE9F3430E494A6C8429B26A1503C895",
-                "Clang 8",
-                "-ex",
-            ),
+        compilers = [
+            ("MSVC-2019", None),
+            # ("Clang-8", None),
+            ("Clang-8", "-ex"),
         ]
+
     else:
         # Cross compiling on Linux is much more difficult on Linux than it is on
         # Windows. Only support the current architecture.
         architectures = [CurrentShell.Architecture]
 
-        # No compilers on Linux for now
-        compiler_factories = [
-            lambda: (
-                "Clang-8",
-                "Common_cpp_Clang_8",
-                "3DE9F3430E494A6C8429B26A1503C895",
-                "Clang 8",
-                "-ex"
-            ),
+        compiler_infos = [
+            # ("Clang-8", None),
+            ("Clang-8", "-ex"),
         ]
 
     d = OrderedDict()
@@ -150,18 +134,12 @@ def GetDependencies():
             ],
         )
 
-        for compiler_factory in compiler_factories:
-            (
-                config_name,
-                repo_name,
-                repo_id,
-                config_desc,
-                architecture_configuration_suffix,
-             ) = compiler_factory()
+        for config_name, architecture_configuration_suffix in compilers:
+            architecture_configuration_suffix = architecture_configuration_suffix or ""
 
             for architecture in architectures:
-                this_config_name = "{}-{}-{}".format(boost_version, config_name, architecture)
-                this_config_desc = "boost {} - {} ({})".format(boost_version, config_desc, architecture)
+                this_config_name = "{}-{}-{}{}".format(boost_version, config_name, architecture, architecture_configuration_suffix)
+                this_config_desc = "boost {} - {} ({}{})".format(boost_version, config_name, architecture, architecture_configuration_suffix)
 
                 d[this_config_name] = Configuration(
                     this_config_desc,
@@ -169,7 +147,7 @@ def GetDependencies():
                         Dependency(
                             "407DD743110A4FB1871AEF60CBEC99A0",
                             "Common_cpp_boost_{}".format(boost_version),
-                            "standard",
+                            "{}-{}{}".format(config_name, architecture, architecture_configuration_suffix),
                             "https://github.com/davidbrownell/Common_cpp_boost_{}.git".format(boost_version),
                         ),
                         Dependency(
@@ -177,12 +155,6 @@ def GetDependencies():
                             "Common_cpp_Helpers",
                             "standard",
                             "https://github.com/davidbrownell/Common_cpp_Helpers.git",
-                        ),
-                        Dependency(
-                            repo_id,
-                            repo_name,
-                            "{}{}".format(architecture, architecture_configuration_suffix or ""),
-                            "https://github.com/davidbrownell/{}.git".format(repo_name),
                         ),
                     ],
                 )
