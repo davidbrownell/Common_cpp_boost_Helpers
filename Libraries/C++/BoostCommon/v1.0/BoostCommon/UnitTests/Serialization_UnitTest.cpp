@@ -440,9 +440,6 @@ TEST_CASE("EventObj") {
     TestImpl(EventObj(10, true), Internal::Compare);
 }
 
-#if 0
-// TODO
-
 TEST_CASE("GetSerializedSize") {
     EventObj const                          obj(10, true);
     size_t const                            value1(obj.GetSerializedSize<boost::archive::text_oarchive>());
@@ -453,5 +450,12 @@ TEST_CASE("GetSerializedSize") {
     CHECK(value1 != value2);
 }
 
-// TODO: - GetSerializedPtrSize (poly)
-#endif
+TEST_CASE("GetSerializedPtrSize") {
+    Derived1Obj const                       obj(10, true, 'c');
+    size_t const                            value1(obj.GetSerializedPtrSize<boost::archive::text_oarchive>());
+    size_t const                            value2(obj.GetSerializedPtrSize<boost::archive::xml_oarchive>());
+
+    CHECK(value1 != 0);
+    CHECK(value2 != 0);
+    CHECK(value1 != value2);
+}

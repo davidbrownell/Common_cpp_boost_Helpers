@@ -219,7 +219,7 @@ namespace Serialization {
         BOOST_PP_COMMA_IF(BOOST_PP_AND(HasMembers, HasBases))                                               \
         BOOST_PP_IIF(HasMembers, SERIALIZATION_Invoke_DefaultCtor_Members, BOOST_VMD_EMPTY)(Name, Members)  \
     {                                                                                                       \
-        (data);                                                                                             \
+        UNUSED(data);                                                                                       \
                                                                                                             \
         CommonHelpers::TypeTraits::Access::DeserializeFinalConstruct(*this);                                \
         CommonHelpers::TypeTraits::Access::FinalConstruct(*this);                                           \
@@ -282,7 +282,7 @@ namespace Serialization {
         Serialize<ArchiveT>(out);                                                                                       \
         out.flush();                                                                                                    \
                                                                                                                         \
-        return out.component<boost::iostreams::counter>(0)->characters();                                               \
+        return static_cast<size_t>(out.component<boost::iostreams::counter>(0)->characters());                          \
     }                                                                                                                   \
                                                                                                                         \
     template <typename ArchiveT>                                                                                        \
@@ -390,7 +390,7 @@ namespace Serialization {
         SerializePtr<ArchiveT>(out);                                                                                                                                    \
         out.flush();                                                                                                                                                    \
                                                                                                                                                                         \
-        return out.component<boost::iostreams::counter>(0)->characters();                                                                                               \
+        return static_cast<size_t>(out.component<boost::iostreams::counter>(0)->characters());                                                                          \
     }                                                                                                                                                                   \
                                                                                                                                                                         \
     template <typename ArchiveT>                                                                                                                                        \
@@ -542,7 +542,7 @@ namespace Serialization {
     protected:                                                                                                                                                                                      \
         SerializationPOD(BoostCommon::Serialization::Details::DelayInitTag const &tag)                                                                                                              \
             BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_DelayedCtor, BOOST_VMD_EMPTY)(Bases)                                                                                                  \
-        { (tag); }                                                                                                                                                                                  \
+        { UNUSED(tag); }                                                                                                                                                                            \
                                                                                                                                                                                                     \
         void Init(SerializeData const &data) {                                                                                                                                                      \
             BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_Init, BOOST_VMD_EMPTY)(Bases)                                                                                                         \
@@ -564,7 +564,7 @@ namespace Serialization {
         DeserializeData * const                         _pDeserializeData = nullptr;                                                                                                                \
                                                                                                                                                                                                     \
         DeserializeData MoveDeserializeData(void) {                                                                                                                                                 \
-            if(!_deserialize_data_storage)                                                                                                                                                  \
+            if(!_deserialize_data_storage)                                                                                                                                                          \
                 throw std::logic_error("DeserializeData has already been moved or never existed");                                                                                                  \
                                                                                                                                                                                                     \
             DeserializeData                 result(std::move(*_deserialize_data_storage));                                                                                                          \
@@ -659,7 +659,7 @@ namespace Serialization {
                                                                                                                                                                                                             \
         SerializeLocalData(Name const &obj)                                                                                                                                                                 \
             BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor, BOOST_VMD_EMPTY)(Members)                                                                              \
-        { (obj); }                                                                                                                                                                                          \
+        { UNUSED(obj); }                                                                                                                                                                                    \
                                                                                                                                                                                                             \
         SerializeLocalData(SerializeLocalData &&) = delete;                                                                                                                                                 \
         SerializeLocalData & operator =(SerializeLocalData &&) = delete;                                                                                                                                    \
@@ -669,7 +669,7 @@ namespace Serialization {
                                                                                                                                                                                                             \
         template <typename ArchiveT>                                                                                                                                                                        \
         void Execute(ArchiveT &ar) const {                                                                                                                                                                  \
-            (ar);                                                                                                                                                                                           \
+            UNUSED(ar);                                                                                                                                                                                     \
             BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeExecute, BOOST_VMD_EMPTY)(Members)                                                                           \
         }                                                                                                                                                                                                   \
     };                                                                                                                                                                                                      \
@@ -682,7 +682,7 @@ namespace Serialization {
                                                                                                                                                                                                             \
         DeserializeLocalData(DeserializeLocalData && other)                                                                                                                                                 \
             BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeCtor, BOOST_VMD_EMPTY)(Members)                                                                            \
-        { (other); }                                                                                                                                                                                        \
+        { UNUSED(other); }                                                                                                                                                                                  \
                                                                                                                                                                                                             \
         DeserializeLocalData & operator =(DeserializeLocalData &&) = delete;                                                                                                                                \
                                                                                                                                                                                                             \
@@ -691,7 +691,7 @@ namespace Serialization {
                                                                                                                                                                                                             \
         template <typename ArchiveT>                                                                                                                                                                        \
         void Execute(ArchiveT &ar) {                                                                                                                                                                        \
-            (ar);                                                                                                                                                                                           \
+            UNUSED(ar);                                                                                                                                                                                     \
             BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeExecute, BOOST_VMD_EMPTY)(Members)                                                                         \
         }                                                                                                                                                                                                   \
     };
