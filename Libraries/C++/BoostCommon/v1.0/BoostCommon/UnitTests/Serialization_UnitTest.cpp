@@ -327,9 +327,11 @@ struct DataCustomConstructorObj {
         int const a;
 
         CONSTRUCTOR(Value, a);
+        NON_COPYABLE(Value);
+        MOVE(Value, a);
         COMPARE(Value, a);
 
-        // Note that we can't use SERIALIZATION here, as its local data value will actually be a SerializationPOD object.
+        // Note that we can't use SERIALIZATION macro here, as its local data value will actually be a SerializationPOD object.
         template <typename ArchiveT>
         void serialize(ArchiveT &ar, const unsigned int) {
             ar & boost::serialization::make_nvp("a", make_mutable(a));
@@ -339,6 +341,8 @@ struct DataCustomConstructorObj {
     Value const value;
 
     CONSTRUCTOR(DataCustomConstructorObj, value);
+    NON_COPYABLE(DataCustomConstructorObj);
+    MOVE(DataCustomConstructorObj, value);
     COMPARE(DataCustomConstructorObj, value);
     SERIALIZATION(DataCustomConstructorObj, MEMBERS(value), FLAGS(SERIALIZATION_DATA_CUSTOM_CONSTRUCTOR));
 };
@@ -359,7 +363,7 @@ private:
 
         SerializeLocalData(CustomTypesObj const &obj);
         NON_COPYABLE(SerializeLocalData);
-        NON_MOVABLE(SerializeLocalData);
+        MOVE(SerializeLocalData, a);
 
         template <typename ArchiveT>
         void Execute(ArchiveT &ar) const {
@@ -372,13 +376,14 @@ private:
 
         DeserializeLocalData(void) = default;
         NON_COPYABLE(DeserializeLocalData);
-        MOVE(DeserializeLocalData, MEMBERS(a), FLAGS(MOVE_NO_ASSIGNMENT));
+        MOVE(DeserializeLocalData, a);
 
         template <typename ArchiveT>
         void Execute(ArchiveT &ar) {
             ar >> boost::serialization::make_nvp("a", a);
         }
     };
+
 public:
     unsigned char const nibble1: 4;
     unsigned char const nibble2: 4;
