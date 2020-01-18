@@ -327,6 +327,7 @@ struct DataCustomConstructorObj {
         int const a;
 
         CONSTRUCTOR(Value, a);
+        MOVE(Value, a);
         COMPARE(Value, a);
 
         // Note that we can't use SERIALIZATION here, as its local data value will actually be a SerializationPOD object.
@@ -359,7 +360,7 @@ private:
 
         SerializeLocalData(CustomTypesObj const &obj);
         NON_COPYABLE(SerializeLocalData);
-        NON_MOVABLE(SerializeLocalData);
+        MOVE(SerializeLocalData, a);
 
         template <typename ArchiveT>
         void Execute(ArchiveT &ar) const {
@@ -372,13 +373,14 @@ private:
 
         DeserializeLocalData(void) = default;
         NON_COPYABLE(DeserializeLocalData);
-        MOVE(DeserializeLocalData, MEMBERS(a), FLAGS(MOVE_NO_ASSIGNMENT));
+        MOVE(DeserializeLocalData, a);
 
         template <typename ArchiveT>
         void Execute(ArchiveT &ar) {
             ar >> boost::serialization::make_nvp("a", a);
         }
     };
+
 public:
     unsigned char const nibble1: 4;
     unsigned char const nibble2: 4;

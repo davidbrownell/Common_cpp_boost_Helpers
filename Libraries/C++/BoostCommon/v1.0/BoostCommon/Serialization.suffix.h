@@ -2,7 +2,9 @@
 ///
 ///  \file          Serialization.suffix.h
 ///  \brief         Contains functionality that should be defined AFTER
-///                 other serialization customizations have been included.
+///                 other serialization archives and customization for common
+///                 types (serialization functionality for std::vector,
+///                 std::shared_ptr, etc.) have been included.
 ///
 ///  \author        David Brownell <db@DavidBrownell.com>
 ///  \date          2019-03-30 19:00:38

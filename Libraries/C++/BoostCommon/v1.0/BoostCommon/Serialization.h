@@ -35,6 +35,8 @@
 #include <boost/serialization/tracking.hpp>
 #include <boost/serialization/traits.hpp>
 
+#include <boost/variant.hpp>
+
 namespace BoostCommon {
 namespace Serialization {
 
@@ -97,7 +99,7 @@ namespace Serialization {
 /// Implements serialization mechanics so the class can be used within a class
 /// hierarchy supporting serialization, but does not implement methods that would
 /// allow this class to be serialized in isolation. Use this when the class is
-/// abstract, but implemented in terms of a base class that is already declared 
+/// abstract, but implemented in terms of a base class that is already declared
 /// with the SERIALIZATION_ABSTRACT flag.
 #define SERIALIZATION_DATA_ONLY                         2
 
@@ -105,32 +107,34 @@ namespace Serialization {
 // |  Data-based flags
 
 /// Declare the deserialization data constructor ("SerializationPOD::DeserializeLocalImpl::DeserializeLocalImpl(void)"),
-/// but do not provide a default implementation (where the default implementation is empty). This is useful when 
-/// there are members within the class that are serializable but not default constructible;  therefore requiring 
+/// but do not provide a default implementation (where the default implementation is empty). This is useful when
+/// there are members within the class that are serializable but not default constructible; therefore requiring
 /// custom construction semantics.
 ///
 #define SERIALIZATION_DATA_CUSTOM_CONSTRUCTOR           3
 
-/// Serialize local data according to the provided types. Use this when the serialization mechanics
-/// required by the object are too complex for the default behavior (where the default implementation 
-/// is implemented in terms of member-by-member serialization). 
-/// 
-/// Requires the following classes and functionality to be implemented:
+/// Serialize local data according to the provided custom types. Use this when the serialization
+/// mechanics required by the object are too complex for the default behavior (where the default
+/// implementation is implemented in terms of member-by-member serialization).
+///
+/// Requires the following classes and functionality to be implemented within the class
+/// to be serialized:
 ///
 ///     SerializeLocalData:
 ///         - SerializeLocalData(ClassName const &);
 ///         - template <typename ArchiveT> void Execute(ArchiveT &ar) const;
-///         - Non-movable
+///         - Move constructor
+///         - Move assignment
 ///         - Non-copyable
-/// 
+///
 ///     DeserializeLocalData:
 ///         - template <typename ArchiveT> void Execute(ArchiveT &ar);
 ///         - Default constructible
 ///         - Move constructor
-///         - No move assignment
+///         - Move assignment
 ///         - Non-copyable
 ///
-///     ClassName(SerializationPOD::DeserializeData && data);
+///     ClassName(SerializationPOD::DeserializeData && data)
 ///
 #define SERIALIZATION_DATA_CUSTOM_TYPES                 4
 
@@ -143,14 +147,14 @@ namespace Serialization {
 ///                 desired type with the serialization engine. Interestingly, the
 ///                 registration system is very particular when it comes to when
 ///                 and where types are registered. Registration is a 2-step process:
-/// 
+///
 ///                     1) Header files must register types via BOOST_CLASS_EXPORT_KEY
 ///                     2) A SINGLE compilation unit must register via BOOST_CLASS_EXPORT_IMPLEMENT
-/// 
+///
 ///                 This macro (along with SERIALIZATION_POLYMORPHIC_DEFINE) abstract
 ///                 the details of this process, while providing compile time checks
 ///                 to ensure that derived types are registered as necessary.
-/// 
+///
 ///                 Note that this macro must appear after the object has been declared,
 ///                 and must appear in the root namespace.
 ///
@@ -164,9 +168,9 @@ namespace Serialization {
 
 /////////////////////////////////////////////////////////////////////////
 ///  \def           SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE
-///  \brief         Invokes SERIALIZATION_POLYMORPHIC_DECLARE and 
+///  \brief         Invokes SERIALIZATION_POLYMORPHIC_DECLARE and
 ///                 SERIALIZATION_POLYMORPHIC_DEFINE.
-///  
+///
 #define SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(FullyQualifiedObjectName)      SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE_Impl(FullyQualifiedObjectName)
 
 // ----------------------------------------------------------------------
@@ -455,7 +459,6 @@ namespace Serialization {
     }
 
 // ----------------------------------------------------------------------
-// TODO: Figure out a way to not allocate memory in SerializationPOD
 #define SERIALIZATION_Impl_PODImpl(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphic, PolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)   \
     class SerializationPOD :                                                                                                                                                                        \
         public virtual boost::serialization::basic_traits                                                                                                                                           \
@@ -483,8 +486,19 @@ namespace Serialization {
                 local(obj) {                                                                                                                                                                        \
             }                                                                                                                                                                                       \
                                                                                                                                                                                                     \
-            SerializeData(SerializeData &&) = delete;                                                                                                                                               \
-            SerializeData & operator =(SerializeData &&) = delete;                                                                                                                                  \
+            SerializeData(SerializeData && other) :                                                                                                                                                 \
+                BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_Serialize_MoveCtor, BOOST_VMD_EMPTY)(Bases)                                                                                       \
+                local(std::move(make_mutable(other.local)))                                                                                                                                         \
+            {}                                                                                                                                                                                      \
+                                                                                                                                                                                                    \
+            SerializeData & operator =(SerializeData && other) {                                                                                                                                    \
+                UNUSED(other);                                                                                                                                                                      \
+                                                                                                                                                                                                    \
+                BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_Serialize_MoveAssign, BOOST_VMD_EMPTY)(Bases)                                                                                     \
+                make_mutable(local) = std::move(make_mutable(other.local));                                                                                                                         \
+                                                                                                                                                                                                    \
+                return *this;                                                                                                                                                                       \
+            }                                                                                                                                                                                       \
                                                                                                                                                                                                     \
             SerializeData(SerializeData const &) = delete;                                                                                                                                          \
             SerializeData & operator =(SerializeData const &) = delete;                                                                                                                             \
@@ -502,7 +516,14 @@ namespace Serialization {
                 local(std::move(other.local))                                                                                                                                                       \
             {}                                                                                                                                                                                      \
                                                                                                                                                                                                     \
-            DeserializeData & operator =(DeserializeData &&) = delete;                                                                                                                              \
+            DeserializeData & operator =(DeserializeData && other) {                                                                                                                                \
+                UNUSED(other);                                                                                                                                                                      \
+                                                                                                                                                                                                    \
+                BOOST_PP_IIF(HasBases, SERIALIZEATION_Impl_PODImpl_Deserialize_MoveAssign, BOOST_VMD_EMPTY)(Bases)                                                                                  \
+                local = std::move(other.local);                                                                                                                                                     \
+                                                                                                                                                                                                    \
+                return *this;                                                                                                                                                                       \
+            }                                                                                                                                                                                       \
                                                                                                                                                                                                     \
             DeserializeData(DeserializeData const &) = delete;                                                                                                                                      \
             DeserializeData & operator =(DeserializeData const &) = delete;                                                                                                                         \
@@ -510,23 +531,23 @@ namespace Serialization {
                                                                                                                                                                                                     \
         SerializationPOD(Name const &obj) :                                                                                                                                                         \
             BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_DelayInitCtor, BOOST_VMD_EMPTY)(Bases)                                                                                                \
-            _serialize_data_storage(std::make_unique<SerializeData>(obj))                                                                                                                           \
+            _data_storage(SerializeData(obj))                                                                                                                                                       \
         {                                                                                                                                                                                           \
-            Init(*_serialize_data_storage);                                                                                                                                                         \
+            Init(boost::get<SerializeData>(_data_storage));                                                                                                                                         \
         }                                                                                                                                                                                           \
                                                                                                                                                                                                     \
         SerializationPOD(void) :                                                                                                                                                                    \
             BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_DelayInitCtor, BOOST_VMD_EMPTY)(Bases)                                                                                                \
-            _deserialize_data_storage(std::make_unique<DeserializeData>())                                                                                                                          \
+            _data_storage(DeserializeData())                                                                                                                                                        \
         {                                                                                                                                                                                           \
-            Init(*_deserialize_data_storage);                                                                                                                                                       \
+            Init(boost::get<DeserializeData>(_data_storage));                                                                                                                                       \
         }                                                                                                                                                                                           \
                                                                                                                                                                                                     \
         SerializationPOD(SerializationPOD && other) :                                                                                                                                               \
             BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_DelayInitCtor, BOOST_VMD_EMPTY)(Bases)                                                                                                \
-            _deserialize_data_storage(std::move(make_mutable(other._deserialize_data_storage)))                                                                                                     \
+            _data_storage(std::move(make_mutable(other._data_storage)))                                                                                                                             \
         {                                                                                                                                                                                           \
-            Init(*_deserialize_data_storage);                                                                                                                                                       \
+            Init(boost::get<DeserializeData>(_data_storage));                                                                                                                                       \
         }                                                                                                                                                                                           \
                                                                                                                                                                                                     \
         SerializationPOD & operator =(SerializationPOD &&) = delete;                                                                                                                                \
@@ -557,19 +578,20 @@ namespace Serialization {
     private:                                                                                                                                                                                        \
         friend class boost::serialization::access;                                                                                                                                                  \
                                                                                                                                                                                                     \
-        std::unique_ptr<SerializeData> const            _serialize_data_storage;                                                                                                                    \
-        std::unique_ptr<DeserializeData> const          _deserialize_data_storage;                                                                                                                  \
-                                                                                                                                                                                                    \
-        SerializeData const * const                     _pSerializeData = nullptr;                                                                                                                  \
-        DeserializeData * const                         _pDeserializeData = nullptr;                                                                                                                \
+        boost::variant<bool, SerializeData, DeserializeData>                _data_storage;                                                                                                          \
+        SerializeData const * const                                         _pSerializeData = nullptr;                                                                                              \
+        DeserializeData * const                                             _pDeserializeData = nullptr;                                                                                            \
                                                                                                                                                                                                     \
         DeserializeData MoveDeserializeData(void) {                                                                                                                                                 \
-            if(!_deserialize_data_storage)                                                                                                                                                          \
+            DeserializeData * const         pDeserializeData(boost::get<DeserializeData>(&_data_storage));                                                                                          \
+                                                                                                                                                                                                    \
+            if(pDeserializeData == nullptr)                                                                                                                                                         \
                 throw std::logic_error("DeserializeData has already been moved or never existed");                                                                                                  \
                                                                                                                                                                                                     \
-            DeserializeData                 result(std::move(*_deserialize_data_storage));                                                                                                          \
+            DeserializeData                 result(std::move(*pDeserializeData));                                                                                                                   \
                                                                                                                                                                                                     \
-            make_mutable(_deserialize_data_storage).reset();                                                                                                                                        \
+            /* Clear the contents of the storage */                                                                                                                                                 \
+            boost::variant<bool, SerializeData, DeserializeData>().swap(_data_storage);                                                                                                             \
             return result;                                                                                                                                                                          \
         }                                                                                                                                                                                           \
                                                                                                                                                                                                     \
@@ -592,7 +614,7 @@ namespace Serialization {
             BOOST_PP_IIF(HasBases, SERIALIZATION_Impl_PODImpl_Serialize, BOOST_VMD_EMPTY)(Bases)                                                                                                    \
             _pDeserializeData->local.Execute(ar);                                                                                                                                                   \
         }                                                                                                                                                                                           \
-    };  
+    };
 
 #define SERIALIZATION_Impl_PODImpl_BaseClasses(Bases)                                   , BOOST_PP_TUPLE_FOR_EACH_ENUM(SERIALIZATION_Impl_PODImpl_BaseClasses_Macro, _, Bases)
 #define SERIALIZATION_Impl_PODImpl_BaseClasses_Macro(r, _, Base)                        public Base::SerializationPOD
@@ -605,11 +627,20 @@ namespace Serialization {
 #define SERIALIZATION_Impl_PODImpl_Serialize_Ctor(Bases)                                BOOST_PP_TUPLE_FOR_EACH_ENUM_I(SERIALIZATION_Impl_PODImpl_Serialize_Ctor_Macro, _, Bases) ,
 #define SERIALIZATION_Impl_PODImpl_Serialize_Ctor_Macro(r, _, Index, Base)              BOOST_PP_CAT(base, Index)(obj)
 
+#define SERIALIZATION_Impl_PODImpl_Serialize_MoveCtor(Bases)                            BOOST_PP_TUPLE_FOR_EACH_ENUM_I(SERIALIZATION_Impl_PODImpl_Serialize_MoveCtor_Macro, _, Bases) ,
+#define SERIALIZATION_Impl_PODImpl_Serialize_MoveCtor_Macro(r, _, Index, Base)          BOOST_PP_CAT(base, Index)(std::move(make_mutable(other. BOOST_PP_CAT(base, Index))))
+
+#define SERIALIZATION_Impl_PODImpl_Serialize_MoveAssign(Bases)                          BOOST_PP_TUPLE_FOR_EACH_I(SERIALIZATION_Impl_PODImpl_Serialize_MoveAssign_Macro, _, Bases)
+#define SERIALIZATION_Impl_PODImpl_Serialize_MoveAssign_Macro(r, _, Index, Base)        make_mutable(BOOST_PP_CAT(base, Index)) = std::move(make_mutable(other. BOOST_PP_CAT(base, Index)));
+
 #define SERIALIZATION_Impl_PODImpl_Deserialize_Bases(Bases)                             BOOST_PP_TUPLE_FOR_EACH_I(SERIALIZATION_Impl_PODImpl_Deserialize_Bases_Macro, _, Bases)
 #define SERIALIZATION_Impl_PODImpl_Deserialize_Bases_Macro(r, _, Index, Base)           typename Base::SerializationPOD::DeserializeData BOOST_PP_CAT(base, Index);
 
 #define SERIALIZATION_Impl_PODImpl_Deserialize_Ctor(Bases)                              BOOST_PP_TUPLE_FOR_EACH_ENUM_I(SERIALIZATION_Impl_PODImpl_Deserialize_Ctor_Macro, _, Bases) ,
 #define SERIALIZATION_Impl_PODImpl_Deserialize_Ctor_Macro(r, _, Index, Base)            BOOST_PP_CAT(base, Index)(std::move(other. BOOST_PP_CAT(base, Index)))
+
+#define SERIALIZEATION_Impl_PODImpl_Deserialize_MoveAssign(Bases)                       BOOST_PP_TUPLE_FOR_EACH_I(SERIALIZEATION_Impl_PODImpl_Deserialize_MoveAssign_Macro, _, Bases)
+#define SERIALIZEATION_Impl_PODImpl_Deserialize_MoveAssign_Macro(r, _, Index, Base)     BOOST_PP_CAT(base, Index) = std::move(other. BOOST_PP_CAT(base, Index));
 
 #define SERIALIZATION_Impl_PODImpl_DelayInitCtor(Bases)                                 BOOST_PP_TUPLE_FOR_EACH_ENUM(SERIALIZATION_Impl_PODImpl_DelayInitCtor_Macro, _, Bases) ,
 #define SERIALIZATION_Impl_PODImpl_DelayInitCtor_Macro(r, _, Base)                      Base::SerializationPOD(BoostCommon::Serialization::Details::DelayInitTag())
@@ -638,7 +669,7 @@ namespace Serialization {
             throw std::logic_error("The original base class has not been set");                                                                                     \
                                                                                                                                                                     \
         return *_pSerializeData->pPolymorphicBaseClass;                                                                                                             \
-    }   
+    }
 
 #define SERIALIZATION_Impl_PODImpl_ConstructPtr_Abstract(Name, PolymorphicBaseName)     = 0;
 #define SERIALIZATION_Impl_PODImpl_ConstructPtr_Concrete(Name, PolymorphicBaseName)     { return std::make_unique<Name>(MoveDeserializeData()); }
@@ -661,8 +692,17 @@ namespace Serialization {
             BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor, BOOST_VMD_EMPTY)(Members)                                                                              \
         { UNUSED(obj); }                                                                                                                                                                                    \
                                                                                                                                                                                                             \
-        SerializeLocalData(SerializeLocalData &&) = delete;                                                                                                                                                 \
-        SerializeLocalData & operator =(SerializeLocalData &&) = delete;                                                                                                                                    \
+        SerializeLocalData(SerializeLocalData && other)                                                                                                                                                     \
+            BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveCtor, BOOST_VMD_EMPTY)(Members)                                                                          \
+        { UNUSED(other); }                                                                                                                                                                                  \
+                                                                                                                                                                                                            \
+        SerializeLocalData & operator =(SerializeLocalData && other) {                                                                                                                                      \
+            UNUSED(other);                                                                                                                                                                                  \
+                                                                                                                                                                                                            \
+            BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveAssign, BOOST_VMD_EMPTY)(Members)                                                                        \
+                                                                                                                                                                                                            \
+            return *this;                                                                                                                                                                                   \
+        }                                                                                                                                                                                                   \
                                                                                                                                                                                                             \
         SerializeLocalData(SerializeLocalData const &) = delete;                                                                                                                                            \
         SerializeLocalData & operator =(SerializeLocalData const &) = delete;                                                                                                                               \
@@ -684,7 +724,13 @@ namespace Serialization {
             BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeCtor, BOOST_VMD_EMPTY)(Members)                                                                            \
         { UNUSED(other); }                                                                                                                                                                                  \
                                                                                                                                                                                                             \
-        DeserializeLocalData & operator =(DeserializeLocalData &&) = delete;                                                                                                                                \
+        DeserializeLocalData & operator =(DeserializeLocalData && other) {                                                                                                                                  \
+            UNUSED(other);                                                                                                                                                                                  \
+                                                                                                                                                                                                            \
+            BOOST_PP_IIF(HasMembers, SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeMoveAssign, BOOST_VMD_EMPTY)(Members)                                                                      \
+                                                                                                                                                                                                            \
+            return *this;                                                                                                                                                                                   \
+        }                                                                                                                                                                                                   \
                                                                                                                                                                                                             \
         DeserializeLocalData(DeserializeLocalData const &) = delete;                                                                                                                                        \
         DeserializeLocalData & operator =(DeserializeLocalData const &) = delete;                                                                                                                           \
@@ -702,6 +748,12 @@ namespace Serialization {
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor(Members)                         : BOOST_PP_TUPLE_FOR_EACH_ENUM(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor_Macro, _, Members)
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeCtor_Macro(r, _, Member)              Member(obj.Member)
 
+#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveCtor(Members)                     : BOOST_PP_TUPLE_FOR_EACH_ENUM(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveCtor_Macro, _, Members)
+#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveCtor_Macro(r, _, Member)          Member(std::move(make_mutable(other.Member)))
+
+#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveAssign(Members)                   BOOST_PP_TUPLE_FOR_EACH(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveAssign_Macro, _, Members)
+#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeMoveAssign_Macro(r, _, Member)        make_mutable(Member) = std::move(make_mutable(other.Member));
+
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeExecute(Members)                      BOOST_PP_TUPLE_FOR_EACH(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeExecute_Macro, _, Members)
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_SerializeExecute_Macro(r, _, Member)           ar << boost::serialization::make_nvp(BOOST_PP_STRINGIZE(Member), Member);
 
@@ -713,6 +765,9 @@ namespace Serialization {
 
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeCtor(Members)                       : BOOST_PP_TUPLE_FOR_EACH_ENUM(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeCtor_Macro, _, Members)
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeCtor_Macro(r, _, Member)            Member(std::move(other.Member))
+
+#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeMoveAssign(Members)                 BOOST_PP_TUPLE_FOR_EACH(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeMoveAssign_Macro, _, Members)
+#define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeMoveAssign_Macro(r, _, Member)      Member = std::move(other.Member);
 
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeExecute(Members)                    BOOST_PP_TUPLE_FOR_EACH(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeExecute_Macro, _, Members)
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeExecute_Macro(r, _, Member)         ar >> boost::serialization::make_nvp(BOOST_PP_STRINGIZE(Member), Member);
@@ -845,7 +900,7 @@ std::remove_const_t<T> CreateMember(U && data) {
 
 #if (defined NDEBUG || defined DEBUG)
     // Errors here indicate that "Serialization.suffix.h" has not been
-    // included; see the documentation for SERIALIZATION for more 
+    // included; see the documentation for SERIALIZATION for more
     // information.
     SERIALIZATION_Impl_Func_Name()();
 #endif
@@ -874,7 +929,7 @@ using SerializeDataType                     = typename SerializeDataTypeImpl<std
 
 /////////////////////////////////////////////////////////////////////////
 ///  \typedef       DeserializeDataType
-///  \brief         Determines the best type to use in the process of 
+///  \brief         Determines the best type to use in the process of
 ///                 deserializing T.
 ///
 template <typename T>
