@@ -41,7 +41,7 @@ namespace Details {
 ///
 namespace PODBasedSerialization {
 
-namespace {
+namespace Details {
 
 template <typename T>
 static std::true_type IsSerializationPODImpl(typename T::SerializationPODTag const *);
@@ -55,10 +55,10 @@ static std::true_type HasPolymorphicSerializationMethodsImpl(typename T::Polymor
 template <typename T>
 static std::false_type HasPolymorphicSerializationMethodsImpl(...);
 
-}  // anonymous namespace
+} // namespace Details
 
 template <typename T>
-constexpr bool const IsSerializationPOD = std::is_same_v<std::true_type, decltype(IsSerializationPODImpl<T>(nullptr))>;
+constexpr bool const IsSerializationPOD = std::is_same_v<std::true_type, decltype(Details::IsSerializationPODImpl<T>(nullptr))>;
 
 template <typename T>
 constexpr bool const HasSerializationPOD = has_SerializationPOD<T> && IsSerializationPOD<T> == false;
@@ -67,7 +67,7 @@ template <typename T>
 constexpr bool const HasStandardSerializationMethods = HasSerializationPOD<T>;
 
 template <typename T>
-constexpr bool const HasPolymorphicSerializationMethods = std::is_same_v<std::true_type, decltype(HasPolymorphicSerializationMethodsImpl<T>(nullptr))>;
+constexpr bool const HasPolymorphicSerializationMethods = std::is_same_v<std::true_type, decltype(Details::HasPolymorphicSerializationMethodsImpl<T>(nullptr))>;
 
 struct SerializationTag_PODBased {};  ///< Object is POD-based and should be serialized via standard methods
 struct SerializationTag_Standard {};  ///< Object is not POD-based.
@@ -95,7 +95,7 @@ inline void SERIALIZATION_Impl_Func_Name()(void) {
 namespace boost {
 namespace serialization {
 
-namespace {
+namespace Details {
 
 template <typename ArchiveT, typename T>
 void serialize_impl(
@@ -180,11 +180,11 @@ void load_construct_data_impl(
     load_construct_data(ar, t, static_cast<const unsigned int>(version));
 }
 
-}  // anonymous namespace
+} // namespace Details
 
 template <typename ArchiveT, typename T>
 void serialize(ArchiveT &ar, T &t, version_type const &version) {
-    serialize_impl(
+    Details::serialize_impl(
         ar,
         t,
         version,
@@ -194,7 +194,7 @@ void serialize(ArchiveT &ar, T &t, version_type const &version) {
 
 template <typename ArchiveT, typename T>
 void save_construct_data(ArchiveT &ar, T const *t, version_type const &version) {
-    save_construct_data_impl(
+    Details::save_construct_data_impl(
         ar,
         t,
         version,
@@ -204,7 +204,7 @@ void save_construct_data(ArchiveT &ar, T const *t, version_type const &version) 
 
 template <typename ArchiveT, typename T>
 void load_construct_data(ArchiveT &ar, T *t, version_type const &version) {
-    load_construct_data_impl(
+    Details::load_construct_data_impl(
         ar,
         t,
         version,

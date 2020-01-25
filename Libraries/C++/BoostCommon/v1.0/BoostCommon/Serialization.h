@@ -825,7 +825,7 @@ struct DelayInitTag {};
 CREATE_HAS_TYPE_CHECKER(SerializationPOD);
 
 // ----------------------------------------------------------------------
-namespace {
+namespace Details {
 
 enum class CreateMemberType {
     SerializationPOD_SmartPointer,
@@ -887,7 +887,7 @@ template <typename T>
 struct DeserializeDataTypeImpl : public DeserializeDataTypeImpl_HasSerializationPOD<T, has_SerializationPOD<T>> {
 };
 
-}  // anonymous namespace
+} // namespace Details
 
 /////////////////////////////////////////////////////////////////////////
 ///  \function      CreateMember
@@ -905,16 +905,16 @@ std::remove_const_t<T> CreateMember(U && data) {
     SERIALIZATION_Impl_Func_Name()();
 #endif
 
-    return CreateMemberImpl<std::remove_const_t<T>>(
+    return Details::CreateMemberImpl<std::remove_const_t<T>>(
         std::forward<U>(data),
         std::conditional_t<
             has_SerializationPOD<T>,
             std::conditional_t<
                 CommonHelpers::TypeTraits::IsSmartPointer<T>,
-                std::integral_constant<CreateMemberType, CreateMemberType::SerializationPOD_SmartPointer>,
-                std::integral_constant<CreateMemberType, CreateMemberType::SerializationPOD_Standard>
+                std::integral_constant<Details::CreateMemberType, Details::CreateMemberType::SerializationPOD_SmartPointer>,
+                std::integral_constant<Details::CreateMemberType, Details::CreateMemberType::SerializationPOD_Standard>
             >,
-            std::integral_constant<CreateMemberType, CreateMemberType::Standard>
+            std::integral_constant<Details::CreateMemberType, Details::CreateMemberType::Standard>
         >()
     );
 }
@@ -925,7 +925,7 @@ std::remove_const_t<T> CreateMember(U && data) {
 ///                 serializing T.
 ///
 template <typename T>
-using SerializeDataType                     = typename SerializeDataTypeImpl<std::remove_const_t<T>>::type;
+using SerializeDataType                     = typename Details::SerializeDataTypeImpl<std::remove_const_t<T>>::type;
 
 /////////////////////////////////////////////////////////////////////////
 ///  \typedef       DeserializeDataType
@@ -933,7 +933,7 @@ using SerializeDataType                     = typename SerializeDataTypeImpl<std
 ///                 deserializing T.
 ///
 template <typename T>
-using DeserializeDataType                   = typename DeserializeDataTypeImpl<std::remove_const_t<T>>::type;
+using DeserializeDataType                   = typename Details::DeserializeDataTypeImpl<std::remove_const_t<T>>::type;
 
 /////////////////////////////////////////////////////////////////////////
 ///  \function      ScrubSerializationName
