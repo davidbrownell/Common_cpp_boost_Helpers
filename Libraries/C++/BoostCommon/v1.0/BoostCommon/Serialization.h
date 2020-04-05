@@ -58,9 +58,14 @@ namespace Serialization {
 ///                     The boost serialization library makes heavy use of template
 ///                     overrides and specializations. Due to the way C++ processes
 ///                     these overrides, the following header file must be included
-///                     after all types and archives have been defined:
+///                     after all types (e.g. "<boost/serialization/vector.hpp>")
+///                     and archives (e.g. "<boost/archive/text_iarchive.hpp>") have
+///                     been included, but before custom classes using the macro
+///                     have been defined:
 ///
 ///                         #include <BoostCommon/Serialization.suffix.h>
+///
+///                     (See UnitTests/Serialization_UnitTest.cpp for an example)
 ///
 ///                 Creates the following methods:
 ///
@@ -128,8 +133,8 @@ namespace Serialization {
 ///         - Non-copyable
 ///
 ///     DeserializeLocalData:
-///         - template <typename ArchiveT> void Execute(ArchiveT &ar);
 ///         - Default constructible
+///         - template <typename ArchiveT> void Execute(ArchiveT &ar);
 ///         - Move constructor
 ///         - Move assignment
 ///         - Non-copyable
