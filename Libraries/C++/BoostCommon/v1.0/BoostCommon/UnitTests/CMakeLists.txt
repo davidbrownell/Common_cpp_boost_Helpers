@@ -30,7 +30,6 @@ foreach(_name IN ITEMS
     target_link_directories(${_name} PRIVATE ${_libs})
 
     target_link_libraries(${_name} CommonHelpers)
-
     target_link_libraries(${_name} ${Boost_LIBRARIES})
 
     add_test(NAME ${_name} COMMAND ${_name} --success)
