@@ -28,7 +28,7 @@
 
 #include <boost/serialization/serialization.hpp>
 
-namespace BoostCommon {
+namespace BoostHelpers {
 namespace Serialization {
 namespace Details {
 
@@ -82,7 +82,7 @@ using GetSerializationTag = std::conditional_t<
 }  // namespace PODBasedSerialization
 
 #if (defined NDEBUG || defined DEBUG)
-inline void SERIALIZATION_Impl_Func_Name()(void) {
+inline void __Ensure_correct_include__See_SERIALIZATION_for_more_info(void) {
     // This method is invoked by functionality in Serialization.h. If this file isn't included,
     // the linker will produce errors that will hopefully help end-users track down the problem.
 }
@@ -90,7 +90,7 @@ inline void SERIALIZATION_Impl_Func_Name()(void) {
 
 }  // namespace Details
 }  // namespace Serialization
-}  // namespace BoostCommon
+}  // namespace BoostHelpers
 
 namespace boost {
 namespace serialization {
@@ -102,7 +102,7 @@ void serialize_impl(
     ArchiveT &,
     T &,
     version_type,
-    BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_PODBased
+    BoostHelpers::Serialization::Details::PODBasedSerialization::SerializationTag_PODBased
 ) {
     // Nothing to do here, as the serialization is handled by save_construct_data and load_construct_data
 }
@@ -112,7 +112,7 @@ void serialize_impl(
     ArchiveT &ar,
     T &t,
     version_type version,
-    BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
+    BoostHelpers::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
 ) {
     serialize(ar, t, static_cast<const unsigned int>(version));
 }
@@ -122,12 +122,12 @@ void serialize_impl(
 // deserialization. Note that this must happen here (where the raw pointer is wrapped by
 // a name-value pair), as the archive won't invoke the functionality when the value is
 // extracted from the nvp.
-template <typename ArchiveT, typename T, std::enable_if_t<std::is_same_v<boost::mpl::true_, typename ArchiveT::is_saving> && BoostCommon::Serialization::Details::PODBasedSerialization::HasPolymorphicSerializationMethods<std::decay_t<T>>> * = nullptr>
+template <typename ArchiveT, typename T, std::enable_if_t<std::is_same_v<boost::mpl::true_, typename ArchiveT::is_saving> && BoostHelpers::Serialization::Details::PODBasedSerialization::HasPolymorphicSerializationMethods<std::decay_t<T>>> * = nullptr>
 void serialize_impl(
     ArchiveT &ar,
     boost::serialization::nvp<T *> &t,
     version_type version,
-    BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
+    BoostHelpers::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
 ) {
     if(*t.second)
         (*t.second)->RegisterSerializationTypes();
@@ -140,7 +140,7 @@ void save_construct_data_impl(
     ArchiveT &ar,
     T const *t,
     version_type,
-    BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_PODBased
+    BoostHelpers::Serialization::Details::PODBasedSerialization::SerializationTag_PODBased
 ) {
     typename T::SerializationPOD            pod(*t);
 
@@ -152,7 +152,7 @@ void save_construct_data_impl(
     ArchiveT &ar,
     T const *t,
     version_type version,
-    BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
+    BoostHelpers::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
 ) {
     save_construct_data(ar, t, static_cast<const unsigned int>(version));
 }
@@ -162,7 +162,7 @@ void load_construct_data_impl(
     ArchiveT &ar,
     T *t,
     version_type,
-    BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_PODBased
+    BoostHelpers::Serialization::Details::PODBasedSerialization::SerializationTag_PODBased
 ) {
     typename T::SerializationPOD            pod;
 
@@ -175,7 +175,7 @@ void load_construct_data_impl(
     ArchiveT &ar,
     T *t,
     version_type version,
-    BoostCommon::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
+    BoostHelpers::Serialization::Details::PODBasedSerialization::SerializationTag_Standard
 ) {
     load_construct_data(ar, t, static_cast<const unsigned int>(version));
 }
@@ -188,7 +188,7 @@ void serialize(ArchiveT &ar, T &t, version_type const &version) {
         ar,
         t,
         version,
-        BoostCommon::Serialization::Details::PODBasedSerialization::GetSerializationTag<T>()
+        BoostHelpers::Serialization::Details::PODBasedSerialization::GetSerializationTag<T>()
     );
 }
 
@@ -198,7 +198,7 @@ void save_construct_data(ArchiveT &ar, T const *t, version_type const &version) 
         ar,
         t,
         version,
-        BoostCommon::Serialization::Details::PODBasedSerialization::GetSerializationTag<T>()
+        BoostHelpers::Serialization::Details::PODBasedSerialization::GetSerializationTag<T>()
     );
 }
 
@@ -208,7 +208,7 @@ void load_construct_data(ArchiveT &ar, T *t, version_type const &version) {
         ar,
         t,
         version,
-        BoostCommon::Serialization::Details::PODBasedSerialization::GetSerializationTag<T>()
+        BoostHelpers::Serialization::Details::PODBasedSerialization::GetSerializationTag<T>()
     );
 }
 
