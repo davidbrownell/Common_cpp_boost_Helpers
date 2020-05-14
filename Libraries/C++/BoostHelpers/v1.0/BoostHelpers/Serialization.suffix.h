@@ -82,7 +82,7 @@ using GetSerializationTag = std::conditional_t<
 }  // namespace PODBasedSerialization
 
 #if (defined NDEBUG || defined DEBUG)
-inline void SERIALIZATION_Impl_Func_Name()(void) {
+inline void __Ensure_correct_include__See_SERIALIZATION_for_more_info(void) {
     // This method is invoked by functionality in Serialization.h. If this file isn't included,
     // the linker will produce errors that will hopefully help end-users track down the problem.
 }

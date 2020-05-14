@@ -35,6 +35,9 @@
 #include <boost/serialization/tracking.hpp>
 #include <boost/serialization/traits.hpp>
 
+#include <boost/serialization/shared_ptr.hpp>
+#include <boost/serialization/unique_ptr.hpp>
+
 #include <boost/variant.hpp>
 
 namespace BoostHelpers {
@@ -98,16 +101,24 @@ namespace Serialization {
 // ----------------------------------------------------------------------
 // |  Class-based flags
 
-#define SERIALIZATION_ABSTRACT                          0                   ///< Adds virtual abstract SerializePtr and DeserializePtr methods
-#define SERIALIZATION_POLYMORPHIC_BASE                  1                   ///< Adds virtual SerializePtr and DeserializePtr methods for the root object in a polymorphic hierarchy
-#define SERIALIZATION_POLYMORPHIC(BaseClassName)        (2, BaseClassName)  ///< Adds virtual SerializePtr and DeserializePtr methods
+/// Objects based on BoostHelpers::SharedObject (defined in SharedObject.h), can only be serialized
+/// and deserialized via std::shared_ptr objects. Providing this flag will disable the generation
+/// of `Serialize` and `Deserialize` methods in favor of `SerializePtr` and `DeserializePtr` method
+/// that ensure serialization via std::shared_ptr objects. This isn't a perfect solution however,
+/// as there isn't a way to detect the serialization of the object itself (e.g. `ar & *ptr`) and
+/// provide helpful compile-time message that would indicate that this is an error.
+#define SERIALIZATION_SHARED_OBJECT                     0
+
+#define SERIALIZATION_ABSTRACT                          1                   ///< Adds virtual abstract SerializePtr and DeserializePtr methods
+#define SERIALIZATION_POLYMORPHIC_BASE                  2                   ///< Adds virtual SerializePtr and DeserializePtr methods for the root object in a polymorphic hierarchy
+#define SERIALIZATION_POLYMORPHIC(BaseClassName)        (3, BaseClassName)  ///< Adds virtual SerializePtr and DeserializePtr methods
 
 /// Implements serialization mechanics so the class can be used within a class
 /// hierarchy supporting serialization, but does not implement methods that would
 /// allow this class to be serialized in isolation. Use this when the class is
 /// abstract, but implemented in terms of a base class that is already declared
 /// with the SERIALIZATION_ABSTRACT flag.
-#define SERIALIZATION_DATA_ONLY                         3
+#define SERIALIZATION_DATA_ONLY                         4
 
 // ----------------------------------------------------------------------
 // |  Data-based flags
@@ -117,7 +128,7 @@ namespace Serialization {
 /// there are members within the class that are serializable but not default constructible; therefore requiring
 /// custom construction semantics.
 ///
-#define SERIALIZATION_DATA_CUSTOM_CONSTRUCTOR           4
+#define SERIALIZATION_DATA_CUSTOM_CONSTRUCTOR           5
 
 /// Serialize local data according to the provided custom types. Use this when the serialization
 /// mechanics required by the object are too complex for the default behavior (where the default
@@ -142,9 +153,9 @@ namespace Serialization {
 ///
 ///     ClassName(SerializationPOD::DeserializeData && data)
 ///
-#define SERIALIZATION_DATA_CUSTOM_TYPES                 5
+#define SERIALIZATION_DATA_CUSTOM_TYPES                 6
 
-#define __NUM_SERIALIZATION_FLAGS                       6
+#define __NUM_SERIALIZATION_FLAGS                       7
 
 /////////////////////////////////////////////////////////////////////////
 ///  \def           SERIALIZATION_POLYMORPHIC_DECLARE
@@ -206,20 +217,21 @@ namespace Serialization {
 #define SERIALIZATION_Impl2_Delay(x)        BOOST_PP_CAT(x, SERIALIZATION_Impl2_Empty())
 #define SERIALIZATION_Impl2_Empty()
 
-#define SERIALIZATION_PreInvoke(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, OptionalPolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)                  SERIALIZATION_PreInvoke2(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, BOOST_PP_OR(IsAbstract, BOOST_PP_OR(IsPolymorphicBase, BOOST_PP_NOT(BOOST_VMD_IS_NUMBER(OptionalPolymorphicBaseName)))), OptionalPolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)
-#define SERIALIZATION_PreInvoke2(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, IsPolymorphic, OptionalPolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)  SERIALIZATION_Invoke(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, IsPolymorphic, BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, BOOST_PP_OR(IsPolymorphicBase, IsPolymorphic)), SERIALIZATION_PreInvoke2_PolymorphicName, BOOST_VMD_EMPTY)(Name, IsAbstract, IsPolymorphicBase, OptionalPolymorphicBaseName), IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)
-#define SERIALIZATION_PreInvoke2_PolymorphicName(Name, IsAbstract, IsPolymorphicBase, OptionalPolymorphicBaseName)                                                                                                          BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(Name), BOOST_PP_IDENTITY(OptionalPolymorphicBaseName))()
+#define SERIALIZATION_PreInvoke(Name, HasMembers, Members, HasBases, Bases, IsSharedObject, IsAbstract, IsPolymorphicBase, OptionalPolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)                  SERIALIZATION_PreInvoke2(Name, HasMembers, Members, HasBases, Bases, IsSharedObject, IsAbstract, IsPolymorphicBase, BOOST_PP_OR(IsAbstract, BOOST_PP_OR(IsPolymorphicBase, BOOST_PP_NOT(BOOST_VMD_IS_NUMBER(OptionalPolymorphicBaseName)))), OptionalPolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)
+#define SERIALIZATION_PreInvoke2(Name, HasMembers, Members, HasBases, Bases, IsSharedObject, IsAbstract, IsPolymorphicBase, IsPolymorphic, OptionalPolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)  SERIALIZATION_Invoke(Name, HasMembers, Members, HasBases, Bases, IsSharedObject, IsAbstract, IsPolymorphicBase, IsPolymorphic, BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, BOOST_PP_OR(IsPolymorphicBase, IsPolymorphic)), SERIALIZATION_PreInvoke2_PolymorphicName, BOOST_VMD_EMPTY)(Name, IsAbstract, IsPolymorphicBase, OptionalPolymorphicBaseName), IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)
+#define SERIALIZATION_PreInvoke2_PolymorphicName(Name, IsAbstract, IsPolymorphicBase, OptionalPolymorphicBaseName)                                                                                                                          BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(Name), BOOST_PP_IDENTITY(OptionalPolymorphicBaseName))()
 
 // ----------------------------------------------------------------------
-#define SERIALIZATION_Invoke(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, IsPolymorphic, PolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)          \
-    public:                                                                                                                                                                                                             \
-        SERIALIZATION_Impl_PODImpl(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, IsPolymorphic, PolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)    \
-                                                                                                                                                                                                                        \
-        Name(typename SerializationPOD::DeserializeData && data)                                                                                                                                                        \
-            BOOST_PP_IIF(HasCustomLocalDataTypes, SERIALIZATION_Invoke_CustomCtor, SERIALIZATION_Invoke_DefaultCtor)(Name, HasMembers, Members, HasBases, Bases)                                                        \
-                                                                                                                                                                                                                        \
-        BOOST_PP_IIF(BOOST_PP_AND(BOOST_PP_NOT(IsDataOnly), BOOST_PP_NOT(IsAbstract)), SERIALIZATION_Invoke_Methods, BOOST_VMD_EMPTY)(Name)                                                                             \
-        BOOST_PP_IIF(BOOST_PP_AND(BOOST_PP_NOT(IsDataOnly), IsPolymorphic), SERIALIZATION_Invoke_PtrMethods, BOOST_VMD_EMPTY)(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)
+#define SERIALIZATION_Invoke(Name, HasMembers, Members, HasBases, Bases, IsSharedObject, IsAbstract, IsPolymorphicBase, IsPolymorphic, PolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)                  \
+    public:                                                                                                                                                                                                                                     \
+        SERIALIZATION_Impl_PODImpl(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, IsPolymorphic, PolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)                            \
+                                                                                                                                                                                                                                                \
+        Name(typename SerializationPOD::DeserializeData && data)                                                                                                                                                                                \
+            BOOST_PP_IIF(HasCustomLocalDataTypes, SERIALIZATION_Invoke_CustomCtor, SERIALIZATION_Invoke_DefaultCtor)(Name, HasMembers, Members, HasBases, Bases)                                                                                \
+                                                                                                                                                                                                                                                \
+        BOOST_PP_IIF(BOOST_PP_OR(IsDataOnly, BOOST_PP_OR(IsAbstract, IsSharedObject)), BOOST_VMD_EMPTY, SERIALIZATION_Invoke_Methods)(Name)                                                                                                     \
+        BOOST_PP_IIF(BOOST_PP_AND(BOOST_PP_NOT(IsDataOnly), IsSharedObject), SERIALIZATION_Invoke_PtrMethods_SharedObject, BOOST_VMD_EMPTY)(Name, IsAbstract, IsPolymorphicBase, IsPolymorphic, PolymorphicBaseName)                            \
+        BOOST_PP_IIF(BOOST_PP_AND(BOOST_PP_NOT(IsDataOnly), BOOST_PP_AND(BOOST_PP_NOT(IsSharedObject), IsPolymorphic)), SERIALIZATION_Invoke_PtrMethods_Polymorphic, BOOST_VMD_EMPTY)(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName) \
 
 #define SERIALIZATION_Invoke_CustomCtor(Name, HasMembers, Members, HasBases, Base)  ;
 
@@ -332,124 +344,69 @@ namespace Serialization {
         return Deserialize(ar, tag);                                                                                    \
     }
 
-#define SERIALIZATION_Invoke_PtrMethods(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)                                                                           \
-    using PolymorphicSerializationUniquePtr             = std::unique_ptr<PolymorphicBaseName>;                                                                             \
-    using PolymorphicSerializationPODUniquePtr          = std::unique_ptr<PolymorphicBaseName::SerializationPOD>;                                                           \
-                                                                                                                                                                            \
-    /* Functionality that helps to ensure that the require mechanics necessary to support polymorphic */                                                                    \
-    /* serialization with the boost library are in place for this class. */                                                                                                 \
-    inline static void SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() (void);                                                                                           \
-    static void SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() (void);                                                                                                   \
-                                                                                                                                                                            \
-    BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)()                                                                 \
-        void RegisterSerializationTypes(void) const                                                                                                                         \
-            BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))()                                                        \
-                BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Register_Abstract, SERIALIZATION_Invoke_PtrMethods_Register_Concrete)(Name, PolymorphicBaseName)   \
-                                                                                                                                                                            \
-    BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)()                                                                 \
-        PolymorphicSerializationPODUniquePtr __CreateSerializationPODPtrImpl(PolymorphicBaseName const &base) const                                                         \
-            BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))()                                                        \
-                BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Create_Abstract, SERIALIZATION_Invoke_PtrMethods_Create_Concrete)(Name, PolymorphicBaseName)       \
-                                                                                                                                                                            \
-    PolymorphicSerializationPODUniquePtr CreateSerializationPODPtr(PolymorphicBaseName const &base) const {                                                                 \
-        SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() ();                                                                                                              \
-        SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() ();                                                                                                               \
-                                                                                                                                                                            \
-        return __CreateSerializationPODPtrImpl(base);                                                                                                                       \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT>                                                                                                                                            \
-    ArchiveT & SerializePtr(ArchiveT &ar) const {                                                                                                                           \
-        return SerializePtr(ar, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(PolymorphicBaseName, Ptr))));                  \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT>                                                                                                                                            \
-    ArchiveT & SerializePtr(ArchiveT &ar, char const *tag) const {                                                                                                          \
-        PolymorphicSerializationPODUniquePtr const      pPod(CreateSerializationPODPtr(*this));                                                                             \
-                                                                                                                                                                            \
-        ar << boost::serialization::make_nvp(tag, pPod);                                                                                                                    \
-        return ar;                                                                                                                                                          \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-    std::basic_ostream<CharT, TraitsT> & SerializePtr(std::basic_ostream<CharT, TraitsT> &s) const {                                                                        \
-        return SerializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(PolymorphicBaseName, Ptr))));         \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-    std::basic_ostream<CharT, TraitsT> & SerializePtr(std::basic_ostream<CharT, TraitsT> &s, char const *tag) const {                                                       \
-        ArchiveT                            ar(s);                                                                                                                          \
-                                                                                                                                                                            \
-        SerializePtr(ar, tag);                                                                                                                                              \
-        return s;                                                                                                                                                           \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-    std::basic_streambuf<CharT, TraitsT> & SerializePtr(std::basic_streambuf<CharT, TraitsT> &s) const {                                                                    \
-        return SerializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(PolymorphicBaseName, Ptr))));         \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-    std::basic_streambuf<CharT, TraitsT> & SerializePtr(std::basic_streambuf<CharT, TraitsT> &s, char const *tag) const {                                                   \
-        ArchiveT                            ar(s);                                                                                                                          \
-                                                                                                                                                                            \
-        SerializePtr(ar, tag);                                                                                                                                              \
-        return s;                                                                                                                                                           \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT>                                                                                                                                            \
-    size_t GetSerializedPtrSize(void) const {                                                                                                                               \
-        boost::iostreams::filtering_ostream             out(boost::iostreams::counter() | boost::iostreams::null_sink());                                                   \
-                                                                                                                                                                            \
-        SerializePtr<ArchiveT>(out);                                                                                                                                        \
-        out.flush();                                                                                                                                                        \
-                                                                                                                                                                            \
-        return static_cast<size_t>(out.component<boost::iostreams::counter>(0)->characters());                                                                              \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT>                                                                                                                                            \
-    static PolymorphicSerializationUniquePtr DeserializePtr(ArchiveT &ar) {                                                                                                 \
-        return DeserializePtr(ar, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(PolymorphicBaseName, Ptr))));                \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT>                                                                                                                                            \
-    static PolymorphicSerializationUniquePtr DeserializePtr(ArchiveT &ar, char const *tag) {                                                                                \
-        PolymorphicSerializationPODUniquePtr            pPod;                                                                                                               \
-                                                                                                                                                                            \
-        ar >> boost::serialization::make_nvp(tag, pPod);                                                                                                                    \
-        return pPod->ConstructPtr();                                                                                                                                        \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-    static PolymorphicSerializationUniquePtr DeserializePtr(std::basic_istream<CharT, TraitsT> &s) {                                                                        \
-        return DeserializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(PolymorphicBaseName, Ptr))));       \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-        static PolymorphicSerializationUniquePtr DeserializePtr(std::basic_istream<CharT, TraitsT> &s, char const *tag) {                                                   \
-        ArchiveT                            ar(s);                                                                                                                          \
-                                                                                                                                                                            \
-        return DeserializePtr(ar, tag);                                                                                                                                     \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-    static PolymorphicSerializationUniquePtr DeserializePtr(std::basic_streambuf<CharT, TraitsT> &s) {                                                                      \
-        return DeserializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(PolymorphicBaseName, Ptr))));       \
-    }                                                                                                                                                                       \
-                                                                                                                                                                            \
-    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                                          \
-    static PolymorphicSerializationUniquePtr DeserializePtr(std::basic_streambuf<CharT, TraitsT> &s, char const *tag) {                                                     \
-        ArchiveT                            ar(s);                                                                                                                          \
-                                                                                                                                                                            \
-        return DeserializePtr(ar, tag);                                                                                                                                     \
-    }
+#define SERIALIZATION_Invoke_PtrMethods_SharedObject(Name, IsAbstract, IsPolymorphicBase, IsPolymorphic, PolymorphicBaseName)                                                   \
+    BOOST_PP_IIF(IsPolymorphic, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare, BOOST_VMD_EMPTY)(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)   \
+                                                                                                                                                                                \
+    using PolymorphicSerializationPtr       = std::shared_ptr<Name>;                                                                                                            \
+                                                                                                                                                                                \
+    template <typename ArchiveT>                                                                                                                                                \
+    ArchiveT & SerializePtr(ArchiveT &ar, char const *tag) const {                                                                                                              \
+        BOOST_PP_IIF(IsPolymorphic, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Invoke, BOOST_VMD_EMPTY)()                                                        \
+        BOOST_PP_IIF(IsPolymorphic, SERIALIZATION_Invoke_PtrMethods_SharedObject_Register, BOOST_VMD_EMPTY)()                                                                   \
+                                                                                                                                                                                \
+        PolymorphicSerializationPtr const   ptr(CreateSharedPtr<Name>());                                                                                                       \
+                                                                                                                                                                                \
+        ar << boost::serialization::make_nvp(tag, ptr);                                                                                                                         \
+        return ar;                                                                                                                                                              \
+    }                                                                                                                                                                           \
+                                                                                                                                                                                \
+    template <typename ArchiveT>                                                                                                                                                \
+    static PolymorphicSerializationPtr DeserializePtr(ArchiveT &ar, char const *tag) {                                                                                          \
+        PolymorphicSerializationPtr         ptr;                                                                                                                                \
+                                                                                                                                                                                \
+        ar >> boost::serialization::make_nvp(tag, ptr);                                                                                                                         \
+        return ptr;                                                                                                                                                             \
+    }                                                                                                                                                                           \
+                                                                                                                                                                                \
+    SERIALIZATION_Invoke_PtrMethods_Common_Nethods(Name)
 
-#define SERIALIZATION_Invoke_PtrMethods_Create_Abstract(Name, PolymorphicBaseName)      = 0;
+#define SERIALIZATION_Invoke_PtrMethods_SharedObject_Register()             RegisterSerializationTypes();
 
-#define SERIALIZATION_Invoke_PtrMethods_Create_Concrete(Name, PolymorphicBaseName)                              \
+#define SERIALIZATION_Invoke_PtrMethods_Polymorphic(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)                                                                                       \
+    SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)                                                                     \
+                                                                                                                                                                                                    \
+    using PolymorphicSerializationPtr                   = std::unique_ptr<PolymorphicBaseName>;                                                                                                     \
+    using PolymorphicSerializationPODUniquePtr          = std::unique_ptr<PolymorphicBaseName::SerializationPOD>;                                                                                   \
+                                                                                                                                                                                                    \
+    BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)()                                                                                         \
+        PolymorphicSerializationPODUniquePtr CreateSerializationPODPtr(PolymorphicBaseName const &base) const                                                                                       \
+            BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))()                                                                                \
+                BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Polymorphic_Create_Abstract, SERIALIZATION_Invoke_PtrMethods_Polymorphic_Create_Concrete)(Name, PolymorphicBaseName)       \
+                                                                                                                                                                                                    \
+    template <typename ArchiveT>                                                                                                                                                                    \
+    ArchiveT & SerializePtr(ArchiveT &ar, char const *tag) const {                                                                                                                                  \
+        SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Invoke()                                                                                                                          \
+                                                                                                                                                                                                    \
+        PolymorphicSerializationPODUniquePtr const      pPod(CreateSerializationPODPtr(*this));                                                                                                     \
+                                                                                                                                                                                                    \
+        ar << boost::serialization::make_nvp(tag, pPod);                                                                                                                                            \
+        return ar;                                                                                                                                                                                  \
+    }                                                                                                                                                                                               \
+                                                                                                                                                                                                    \
+    template <typename ArchiveT>                                                                                                                                                                    \
+    static PolymorphicSerializationPtr DeserializePtr(ArchiveT &ar, char const *tag) {                                                                                                              \
+        PolymorphicSerializationPODUniquePtr            pPod;                                                                                                                                       \
+                                                                                                                                                                                                    \
+        ar >> boost::serialization::make_nvp(tag, pPod);                                                                                                                                            \
+        return pPod->ConstructPtr();                                                                                                                                                                \
+    }                                                                                                                                                                                               \
+                                                                                                                                                                                                    \
+    SERIALIZATION_Invoke_PtrMethods_Common_Nethods(PolymorphicBaseName)
+
+#define SERIALIZATION_Invoke_PtrMethods_Polymorphic_Create_Abstract(Name, PolymorphicBaseName)                  = 0;
+#define SERIALIZATION_Invoke_PtrMethods_Polymorphic_Create_Concrete(Name, PolymorphicBaseName)                  \
     {                                                                                                           \
-        SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() ();                                                  \
-        SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() ();                                                   \
+        SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Invoke()                                      \
                                                                                                                 \
         std::unique_ptr<Name::SerializationPOD>         pResult(std::make_unique<SerializationPOD>(*this));     \
                                                                                                                 \
@@ -458,15 +415,101 @@ namespace Serialization {
         return PolymorphicSerializationPODUniquePtr(pResult.release());                                         \
     }
 
-#define SERIALIZATION_Invoke_PtrMethods_Register_Abstract(Name, PolymorphicBaseName)    = 0;
+#define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)                                                                                                             \
+    /* Functionality that helps to ensure that the required mechanics necessary to support polymorphic */                                                                                                                                       \
+    /* serialization with the boost library are in place for this class. */                                                                                                                                                                     \
+    inline static void SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() (void);                                                                                                                                                               \
+    static void SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() (void);                                                                                                                                                                       \
+                                                                                                                                                                                                                                                \
+    /* RegisterSerializationTypes is invoked in Serialization.suffix.h */                                                                                                                                                                       \
+    BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)()                                                                                                                                     \
+        void RegisterSerializationTypes(void) const                                                                                                                                                                                             \
+            BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))()                                                                                                                            \
+                BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterAbstract, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterConcrete)(Name, PolymorphicBaseName)
 
-#define SERIALIZATION_Invoke_PtrMethods_Register_Concrete(Name, PolymorphicBaseName)    \
-    {                                                                                   \
-        boost::serialization::void_cast_register(                                       \
-            static_cast<Name const *>(nullptr),                                         \
-            static_cast<PolymorphicBaseName const *>(nullptr)                           \
-        );                                                                              \
+#define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterAbstract(Name, PolymorphicBaseName)   = 0;
+#define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterConcrete(Name, PolymorphicBaseName)   \
+    {                                                                                                                   \
+        boost::serialization::void_cast_register(                                                                       \
+            static_cast<Name const *>(nullptr),                                                                         \
+            static_cast<PolymorphicBaseName const *>(nullptr)                                                           \
+        );                                                                                                              \
     }
+
+#define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Invoke()  \
+    SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() ();                  \
+    SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() ();
+
+#define SERIALIZATION_Invoke_PtrMethods_Common_Nethods(Name)                                                                                            \
+    template <typename ArchiveT>                                                                                                                        \
+    ArchiveT & SerializePtr(ArchiveT &ar) const {                                                                                                       \
+        return SerializePtr(ar, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(Name, Ptr))));             \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+    std::basic_ostream<CharT, TraitsT> & SerializePtr(std::basic_ostream<CharT, TraitsT> &s) const {                                                    \
+        return SerializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(Name, Ptr))));    \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+    std::basic_ostream<CharT, TraitsT> & SerializePtr(std::basic_ostream<CharT, TraitsT> &s, char const *tag) const {                                   \
+        ArchiveT                            ar(s);                                                                                                      \
+                                                                                                                                                        \
+        SerializePtr(ar, tag);                                                                                                                          \
+        return s;                                                                                                                                       \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+    std::basic_streambuf<CharT, TraitsT> & SerializePtr(std::basic_streambuf<CharT, TraitsT> &s) const {                                                \
+        return SerializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(Name, Ptr))));    \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+    std::basic_streambuf<CharT, TraitsT> & SerializePtr(std::basic_streambuf<CharT, TraitsT> &s, char const *tag) const {                               \
+        ArchiveT                            ar(s);                                                                                                      \
+                                                                                                                                                        \
+        SerializePtr(ar, tag);                                                                                                                          \
+        return s;                                                                                                                                       \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT>                                                                                                                        \
+    size_t GetSerializedPtrSize(void) const {                                                                                                           \
+        boost::iostreams::filtering_ostream             out(boost::iostreams::counter() | boost::iostreams::null_sink());                               \
+                                                                                                                                                        \
+        SerializePtr<ArchiveT>(out);                                                                                                                    \
+        out.flush();                                                                                                                                    \
+                                                                                                                                                        \
+        return static_cast<size_t>(out.component<boost::iostreams::counter>(0)->characters());                                                          \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT>                                                                                                                        \
+    static PolymorphicSerializationPtr DeserializePtr(ArchiveT &ar) {                                                                                   \
+        return DeserializePtr(ar, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(Name, Ptr))));           \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+    static PolymorphicSerializationPtr DeserializePtr(std::basic_istream<CharT, TraitsT> &s) {                                                          \
+        return DeserializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(Name, Ptr))));  \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+        static PolymorphicSerializationPtr DeserializePtr(std::basic_istream<CharT, TraitsT> &s, char const *tag) {                                     \
+        ArchiveT                            ar(s);                                                                                                      \
+                                                                                                                                                        \
+        return DeserializePtr(ar, tag);                                                                                                                 \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+    static PolymorphicSerializationPtr DeserializePtr(std::basic_streambuf<CharT, TraitsT> &s) {                                                        \
+        return DeserializePtr<ArchiveT>(s, BoostHelpers::Serialization::Details::ScrubSerializationName(BOOST_PP_STRINGIZE(BOOST_PP_CAT(Name, Ptr))));  \
+    }                                                                                                                                                   \
+                                                                                                                                                        \
+    template <typename ArchiveT, typename CharT, typename TraitsT>                                                                                      \
+    static PolymorphicSerializationPtr DeserializePtr(std::basic_streambuf<CharT, TraitsT> &s, char const *tag) {                                       \
+        ArchiveT                            ar(s);                                                                                                      \
+                                                                                                                                                        \
+        return DeserializePtr(ar, tag);                                                                                                                 \
+    }                                                                                                                                                   \
 
 // ----------------------------------------------------------------------
 #define SERIALIZATION_Impl_PODImpl(Name, HasMembers, Members, HasBases, Bases, IsAbstract, IsPolymorphicBase, IsPolymorphic, PolymorphicBaseName, IsDataOnly, HasDeserializeDataCustomCtor, HasCustomLocalDataTypes)    \
@@ -784,8 +827,6 @@ namespace Serialization {
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeExecute(Members)                    BOOST_PP_TUPLE_FOR_EACH(SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeExecute_Macro, _, Members)
 #define SERIALIZATION_Impl_PODImpl_DefaultLocalDataTypes_DeserializeExecute_Macro(r, _, Member)         ar >> boost::serialization::make_nvp(BOOST_PP_STRINGIZE(Member), Member);
 
-#define SERIALIZATION_Impl_Func_Name()                                                                  __Ensure_correct_include__See_SERIALIZATION_for_more_info
-
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
@@ -816,12 +857,12 @@ namespace Details {
 #if (defined NDEBUG || defined DEBUG)
 
 /////////////////////////////////////////////////////////////////////////
-///  \function      SERIALIZATION_Impl_Func_Name()
+///  \function      __Ensure_correct_include__See_SERIALIZATION_for_more_info
 ///  \brief         Declares a function implemented in Serialization.suffix.h.
 ///                 Linker errors when this function isn't defined indicate that
 ///                 Serialization.suffix.h hasn't been included.
 ///
-void SERIALIZATION_Impl_Func_Name()(void);
+void __Ensure_correct_include__See_SERIALIZATION_for_more_info(void);
 
 #endif
 
@@ -914,7 +955,7 @@ std::remove_const_t<T> CreateMember(U && data) {
     // Errors here indicate that "Serialization.suffix.h" has not been
     // included; see the documentation for SERIALIZATION for more
     // information.
-    SERIALIZATION_Impl_Func_Name()();
+    __Ensure_correct_include__See_SERIALIZATION_for_more_info();
 #endif
 
     return Details::CreateMemberImpl<std::remove_const_t<T>>(

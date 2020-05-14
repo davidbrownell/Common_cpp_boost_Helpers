@@ -26,7 +26,7 @@ function(Impl)
     build_tests(
         FILES
             ${_this_path}/Serialization_UnitTest.cpp
-            # TODO ${_this_path}/SharedObject_UnitTest.cpp
+            ${_this_path}/SharedObject_UnitTest.cpp
         LINK_LIBRARIES
             BoostHelpers
             CommonHelpers
