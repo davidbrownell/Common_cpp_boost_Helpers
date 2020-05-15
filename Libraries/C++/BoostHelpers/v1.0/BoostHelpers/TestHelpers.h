@@ -30,6 +30,8 @@
 
 #include "Serialization.suffix.h"
 
+#include <sstream>
+
 namespace BoostHelpers {
 namespace TestHelpers {
 
@@ -67,8 +69,10 @@ bool SerializeTestImpl(T const &obj) {
     std::ostringstream                      out;
 
     obj.template Serialize<OArchiveT>(out);
+    out.flush();
 
-    std::istringstream                      in(out.str());
+    std::string                             result(out.str());
+    std::istringstream                      in(result);
     T const                                 other(T::template Deserialize<IArchiveT>(in));
 
     return other == obj;
@@ -79,8 +83,10 @@ bool SerializePtrTestImpl(T const &obj) {
     std::ostringstream                      out;
 
     obj->template SerializePtr<OArchiveT>(out);
+    out.flush();
 
-    std::istringstream                      in(out.str());
+    std::string                             result(out.str());
+    std::istringstream                      in(result);
     auto const                              other(DerivedT::template DeserializePtr<IArchiveT>(in));
 
     return *other == *static_cast<DerivedT const *>(obj.get());
