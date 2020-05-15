@@ -14,11 +14,17 @@ function(Impl)
     get_filename_component(_this_path ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 
     build_library(
-        NAME BoostHelpers
-        IS_INTERFACE ON
+        NAME
+            BoostHelpers
+
+        IS_INTERFACE
+            ON
+
         FILES
             ${_this_path}/../Serialization.h
             ${_this_path}/../Serialization.suffix.h
+            ${_this_path}/../TestHelpers.h
+
         PUBLIC_INCLUDE_DIRECTORIES
             ${_this_path}/../..
     )
