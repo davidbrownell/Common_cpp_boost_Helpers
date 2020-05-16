@@ -27,6 +27,11 @@ function(Impl)
         FILES
             ${_this_path}/Serialization_UnitTest.cpp
             ${_this_path}/SharedObject_UnitTest.cpp
+            ${_this_path}/TestHelpers_UnitTest.cpp
+
+        INCLUDE_DIRECTORIES
+            CommonHelpers
+
         LINK_LIBRARIES
             BoostHelpers
             CommonHelpers
