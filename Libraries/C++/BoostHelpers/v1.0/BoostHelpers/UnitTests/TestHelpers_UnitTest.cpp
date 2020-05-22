@@ -59,5 +59,21 @@ TEST_CASE("Standard") {
     CHECK(BoostHelpers::TestHelpers::SerializePtrTest<std::shared_ptr<Base>, Derived>(std::make_shared<Derived>(10, true, 3.0)) == 0);
 }
 
+TEST_CASE("WithFunc") {
+    auto const                              onSerializedFunc(
+        [](std::string const &data) {
+            UNSCOPED_INFO(data);
+
+            // Force the previous line to be displayed (without this, we will only see the xml output
+            CHECK(true);
+        }
+    );
+
+    CHECK(BoostHelpers::TestHelpers::SerializeTest(Base(10, true), onSerializedFunc) == 0);
+    CHECK(BoostHelpers::TestHelpers::SerializeTest(Derived(10, true, 3.0), onSerializedFunc) == 0);
+    CHECK(BoostHelpers::TestHelpers::SerializePtrTest(std::make_shared<Derived>(10, true, 3.0), onSerializedFunc) == 0);
+    CHECK(BoostHelpers::TestHelpers::SerializePtrTest<std::shared_ptr<Base>, Derived>(std::make_shared<Derived>(10, true, 3.0), onSerializedFunc) == 0);
+}
+
 SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(Base);
 SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(Derived);

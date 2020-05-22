@@ -30,6 +30,8 @@
 
 #include "Serialization.suffix.h"
 
+#include <functional>
+#include <optional>
 #include <sstream>
 
 namespace BoostHelpers {
@@ -42,7 +44,7 @@ namespace TestHelpers {
 ///                 any failures.
 ///
 template <typename T>
-unsigned char SerializeTest(T const &obj);
+unsigned char SerializeTest(T const &obj, std::optional<std::function<void (std::string const &)>> const &onSerializedFunc=std::nullopt);
 
 /////////////////////////////////////////////////////////////////////////
 ///  \fn            SerializePtrTest
@@ -51,7 +53,7 @@ unsigned char SerializeTest(T const &obj);
 ///                 corresponding to any failures.
 ///
 template <typename T, typename DerivedT=typename T::element_type>
-unsigned char SerializePtrTest(T const &obj);
+unsigned char SerializePtrTest(T const &obj, std::optional<std::function<void (std::string const &)>> const &onSerializedFunc=std::nullopt);
 
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
@@ -65,13 +67,19 @@ unsigned char SerializePtrTest(T const &obj);
 namespace Details {
 
 template <typename OArchiveT, typename IArchiveT, typename T>
-bool SerializeTestImpl(T const &obj) {
+bool SerializeTestImpl(T const &obj, std::optional<std::function<void (std::string const &)>> const &onSerializedFunc) {
     std::ostringstream                      out;
 
     obj.template Serialize<OArchiveT>(out);
     out.flush();
 
     std::string                             result(out.str());
+
+    if(onSerializedFunc) {
+        assert(*onSerializedFunc);
+        (*onSerializedFunc)(result);
+    }
+
     std::istringstream                      in(result);
     T const                                 other(T::template Deserialize<IArchiveT>(in));
 
@@ -79,13 +87,19 @@ bool SerializeTestImpl(T const &obj) {
 }
 
 template <typename OArchiveT, typename IArchiveT, typename DerivedT, typename T>
-bool SerializePtrTestImpl(T const &obj) {
+bool SerializePtrTestImpl(T const &obj, std::optional<std::function<void (std::string const &)>> const &onSerializedFunc) {
     std::ostringstream                      out;
 
     obj->template SerializePtr<OArchiveT>(out);
     out.flush();
 
     std::string                             result(out.str());
+
+    if(onSerializedFunc) {
+        assert(*onSerializedFunc);
+        (*onSerializedFunc)(result);
+    }
+
     std::istringstream                      in(result);
     auto const                              other(DerivedT::template DeserializePtr<IArchiveT>(in));
 
@@ -95,20 +109,20 @@ bool SerializePtrTestImpl(T const &obj) {
 } // namespace Details
 
 template <typename T>
-unsigned char SerializeTest(T const &obj) {
-    if(Details::SerializeTestImpl<boost::archive::text_oarchive, boost::archive::text_iarchive>(obj) == false)
+unsigned char SerializeTest(T const &obj, std::optional<std::function<void (std::string const &)>> const &onSerializedFunc/*=std::nullopt*/) {
+    if(Details::SerializeTestImpl<boost::archive::text_oarchive, boost::archive::text_iarchive>(obj, onSerializedFunc) == false)
         return 1;
-    if(Details::SerializeTestImpl<boost::archive::xml_oarchive, boost::archive::xml_iarchive>(obj) == false)
+    if(Details::SerializeTestImpl<boost::archive::xml_oarchive, boost::archive::xml_iarchive>(obj, onSerializedFunc) == false)
         return 2;
 
     return 0;
 }
 
 template <typename T, typename DerivedT>
-unsigned char SerializePtrTest(T const &obj) {
-    if(Details::SerializePtrTestImpl<boost::archive::text_oarchive, boost::archive::text_iarchive, DerivedT>(obj) == false)
+unsigned char SerializePtrTest(T const &obj, std::optional<std::function<void (std::string const &)>> const &onSerializedFunc/*=std::nullopt*/) {
+    if(Details::SerializePtrTestImpl<boost::archive::text_oarchive, boost::archive::text_iarchive, DerivedT>(obj, onSerializedFunc) == false)
         return 1;
-    if(Details::SerializePtrTestImpl<boost::archive::xml_oarchive, boost::archive::xml_iarchive, DerivedT>(obj) == false)
+    if(Details::SerializePtrTestImpl<boost::archive::xml_oarchive, boost::archive::xml_iarchive, DerivedT>(obj, onSerializedFunc) == false)
         return 2;
 
     return 0;
