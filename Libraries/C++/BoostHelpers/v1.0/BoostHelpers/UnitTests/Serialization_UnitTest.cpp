@@ -28,6 +28,7 @@
 #include <CommonHelpers/Copy.h>
 #include <CommonHelpers/Constructor.h>
 #include <CommonHelpers/Move.h>
+#include <CommonHelpers/Stl.h>
 
 #include <boost/serialization/shared_ptr.hpp>
 #include <boost/serialization/unique_ptr.hpp>
@@ -127,6 +128,8 @@ void StandardTestImpl(T const &value, ComparisonFunc<T> comparison_func=nullptr)
 // ----------------------------------------------------------------------
 struct EmptyObj {
     CONSTRUCTOR(EmptyObj, FLAGS(CONSTRUCTOR_BASE_NUM_ARGS(0)));
+    NON_COPYABLE(EmptyObj);
+    MOVE(EmptyObj);
     COMPARE(EmptyObj);
     SERIALIZATION(EmptyObj);
 };
@@ -139,6 +142,8 @@ struct SingleMemberObj {
     int const a;
 
     CONSTRUCTOR(SingleMemberObj, a);
+    NON_COPYABLE(SingleMemberObj);
+    MOVE(SingleMemberObj, a);
     COMPARE(SingleMemberObj, a);
     SERIALIZATION(SingleMemberObj, a);
 };
@@ -149,6 +154,8 @@ TEST_CASE("SingleMemberObj") {
 
 struct SingleBaseObj : public SingleMemberObj {
     CONSTRUCTOR(SingleBaseObj, BASES(SingleMemberObj));
+    NON_COPYABLE(SingleBaseObj);
+    MOVE(SingleBaseObj, BASES(SingleMemberObj));
     COMPARE(SingleBaseObj, BASES(SingleMemberObj));
     SERIALIZATION(SingleBaseObj, BASES(SingleMemberObj));
 };
@@ -161,6 +168,8 @@ struct SingleMemberSingleBaseObj : public SingleMemberObj {
     bool const b;
 
     CONSTRUCTOR(SingleMemberSingleBaseObj, MEMBERS(b), BASES(SingleMemberObj), FLAGS(CONSTRUCTOR_BASES_BEFORE_MEMBERS));
+    NON_COPYABLE(SingleMemberSingleBaseObj);
+    MOVE(SingleMemberSingleBaseObj, MEMBERS(b), BASES(SingleMemberObj));
     COMPARE(SingleMemberSingleBaseObj, MEMBERS(b), BASES(SingleMemberObj));
     SERIALIZATION(SingleMemberSingleBaseObj, MEMBERS(b), BASES(SingleMemberObj));
 };
@@ -174,6 +183,8 @@ struct MultiMemberObj {
     char const c;
 
     CONSTRUCTOR(MultiMemberObj, MEMBERS(b, c));
+    NON_COPYABLE(MultiMemberObj);
+    MOVE(MultiMemberObj, MEMBERS(b, c));
     COMPARE(MultiMemberObj, MEMBERS(b, c));
     SERIALIZATION(MultiMemberObj, MEMBERS(b, c));
 };
@@ -184,6 +195,8 @@ TEST_CASE("MultiMemberObj") {
 
 struct MultiBaseObj : public SingleMemberObj, public MultiMemberObj {
     CONSTRUCTOR(MultiBaseObj, BASES(SingleMemberObj, MultiMemberObj), FLAGS(CONSTRUCTOR_BASE_ARGS_1(2)));
+    NON_COPYABLE(MultiBaseObj);
+    MOVE(MultiBaseObj, BASES(SingleMemberObj, MultiMemberObj));
     COMPARE(MultiBaseObj, BASES(SingleMemberObj, MultiMemberObj));
     SERIALIZATION(MultiBaseObj, BASES(SingleMemberObj, MultiMemberObj));
 };
@@ -195,30 +208,43 @@ TEST_CASE("MultiBaseObj") {
 struct MultiMemberMultiBaseObj : public SingleMemberObj, public MultiMemberObj {
     double const d;
     float const f;
+    std::unique_ptr<MultiMemberObj> const pMultiMember;
 
-    CONSTRUCTOR(MultiMemberMultiBaseObj, MEMBERS(d, f), BASES(SingleMemberObj, MultiMemberObj), FLAGS(CONSTRUCTOR_BASE_ARGS_1(2), CONSTRUCTOR_BASES_BEFORE_MEMBERS));
-    COMPARE(MultiMemberMultiBaseObj, MEMBERS(d, f), BASES(SingleMemberObj, MultiMemberObj));
-    SERIALIZATION(MultiMemberMultiBaseObj, MEMBERS(d, f), BASES(SingleMemberObj, MultiMemberObj));
+    CONSTRUCTOR(MultiMemberMultiBaseObj, MEMBERS(d, f, pMultiMember), BASES(SingleMemberObj, MultiMemberObj), FLAGS(CONSTRUCTOR_BASE_ARGS_1(2), CONSTRUCTOR_BASES_BEFORE_MEMBERS));
+    NON_COPYABLE(MultiMemberMultiBaseObj);
+    MOVE(MultiMemberMultiBaseObj, MEMBERS(d, f, pMultiMember), BASES(SingleMemberObj, MultiMemberObj));
+    COMPARE(MultiMemberMultiBaseObj, MEMBERS(d, f, pMultiMember), BASES(SingleMemberObj, MultiMemberObj));
+    SERIALIZATION(MultiMemberMultiBaseObj, MEMBERS(d, f, pMultiMember), BASES(SingleMemberObj, MultiMemberObj));
 };
 
 TEST_CASE("MultiMemberMultiBaseObj") {
-    TestImpl(MultiMemberMultiBaseObj(10, true, 'c', 1.0, 2.0f));
+    TestImpl(MultiMemberMultiBaseObj(10, true, 'c', 1.0, 2.0f, std::make_unique<MultiMemberObj>(true, 'q')));
 }
 
 TEST_CASE("std::unique_ptr") {
-    StandardTestImpl(std::make_unique<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f));
+    StandardTestImpl(std::make_unique<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f, std::make_unique<MultiMemberObj>(true, 'q')));
 }
 
 TEST_CASE("std::shared_ptr") {
-    StandardTestImpl(std::make_shared<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f));
+    StandardTestImpl(std::make_shared<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f, std::make_unique<MultiMemberObj>(true, 'q')));
 }
 
 TEST_CASE("std::vector") {
     StandardTestImpl(std::vector<int>{ 1, 2, 3 });
-    StandardTestImpl(std::vector<MultiMemberMultiBaseObj>{ {10, true, 'c', 1.0, 2.0f}, {20, true, 'z', 3.0, 4.0f} });
-    StandardTestImpl(std::vector<std::shared_ptr<MultiMemberMultiBaseObj>>{ std::make_shared<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f) });
 
-    auto ptr(std::make_shared<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f));
+    StandardTestImpl(
+        CommonHelpers::Stl::CreateVector<MultiMemberMultiBaseObj>(
+            MultiMemberMultiBaseObj(10, true, 'c', 1.0, 2.0f, std::make_unique<MultiMemberObj>(true, 'q')),
+            MultiMemberMultiBaseObj(20, true, 'z', 3.0, 4.0f, std::make_unique<MultiMemberObj>(true, 'x'))
+        )
+    );
+    StandardTestImpl(
+        CommonHelpers::Stl::CreateVector<std::shared_ptr<MultiMemberMultiBaseObj>>(
+            std::make_shared<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f, std::make_unique<MultiMemberObj>(true, 'q'))
+        )
+    );
+
+    auto ptr(std::make_shared<MultiMemberMultiBaseObj>(10, true, 'c', 1.0, 2.0f, std::make_unique<MultiMemberObj>(true, 'q')));
 
     // ----------------------------------------------------------------------
     struct Internal {
