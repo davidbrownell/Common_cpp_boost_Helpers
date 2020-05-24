@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.5.0)
 
+project(BoostHelpers_UnitTests LANGUAGES CXX)
+
 set(CMAKE_MODULE_PATH "$ENV{DEVELOPMENT_ENVIRONMENT_CMAKE_MODULE_PATH}")
 
 if(NOT WIN32)
@@ -16,7 +18,6 @@ enable_testing()
 function(Impl)
     get_filename_component(_this_path ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
 
-    include(BoostCommon)
     include(CommonHelpers)
 
     include(${_this_path}/../cmake/BoostHelpers.cmake)
