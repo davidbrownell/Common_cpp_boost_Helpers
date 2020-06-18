@@ -24,6 +24,11 @@
 #include <CommonHelpers/TypeTraits.h>
 #include <CommonHelpers/Details/PreprocessorObjectFunctionalityImpl.h>
 
+#if (defined __clang__ && __clang_major__ >= 10)
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wdeprecated-copy"
+#endif
+
 #include <boost/iostreams/device/null.hpp>
 #include <boost/iostreams/filter/counter.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -39,6 +44,10 @@
 #include <boost/serialization/unique_ptr.hpp>
 
 #include <boost/variant.hpp>
+
+#if (defined __clang__ && __clang_major__ >= 10)
+#   pragma clang diagnostic pop
+#endif
 
 namespace BoostHelpers {
 namespace Serialization {
