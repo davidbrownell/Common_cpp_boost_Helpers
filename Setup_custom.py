@@ -100,7 +100,7 @@ def GetDependencies():
         compiler_infos = [
             ("MSVC-2019", None),
             # ("Clang-8", None),
-            ("Clang-8", "-ex"),
+            ("Clang-10", "-ex"),
         ]
 
     else:
@@ -110,7 +110,7 @@ def GetDependencies():
 
         compiler_infos = [
             # ("Clang-8", None),
-            ("Clang-8", "-ex"),
+            ("Clang-10", "-ex"),
         ]
 
     d = OrderedDict()
