@@ -98,9 +98,9 @@ def GetDependencies():
         architectures = ["x64", "x86"]
 
         compiler_infos = [
-            ("MSVC-2019", None),
-            # ("Clang-8", None),
-            ("Clang-10", "-ex"),
+            ("MSVC_2019", None),
+            # ("Clang_8", None),
+            ("Clang_10", "_ex"),
         ]
 
     else:
@@ -109,8 +109,8 @@ def GetDependencies():
         architectures = [CurrentShell.Architecture]
 
         compiler_infos = [
-            # ("Clang-8", None),
-            ("Clang-10", "-ex"),
+            # ("Clang_8", None),
+            ("Clang_10", "_ex"),
         ]
 
     d = OrderedDict()
@@ -138,7 +138,7 @@ def GetDependencies():
             architecture_configuration_suffix = architecture_configuration_suffix or ""
 
             for architecture in architectures:
-                this_config_name = "{}-{}-{}{}".format(boost_version, config_name, architecture, architecture_configuration_suffix)
+                this_config_name = "{}_{}_{}{}".format(boost_version, config_name, architecture, architecture_configuration_suffix)
                 this_config_desc = "boost {} - {} ({}{})".format(boost_version, config_name, architecture, architecture_configuration_suffix)
 
                 d[this_config_name] = Configuration(
@@ -147,7 +147,7 @@ def GetDependencies():
                         Dependency(
                             "407DD743110A4FB1871AEF60CBEC99A0",
                             "Common_cpp_boost_{}".format(boost_version),
-                            "{}-{}{}".format(config_name, architecture, architecture_configuration_suffix),
+                            "{}_{}{}".format(config_name, architecture, architecture_configuration_suffix),
                             "https://github.com/davidbrownell/Common_cpp_boost_{}.git".format(boost_version),
                         ),
                         Dependency(
