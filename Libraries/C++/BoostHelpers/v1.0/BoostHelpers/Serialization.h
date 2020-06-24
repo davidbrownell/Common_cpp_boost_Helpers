@@ -199,6 +199,36 @@ namespace Serialization {
 ///
 #define SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(FullyQualifiedObjectName)      SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE_Impl(FullyQualifiedObjectName)
 
+/////////////////////////////////////////////////////////////////////////
+///  \def           SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS
+///  \brief         It is unusual to have to use this macro, but it may be necessary
+///                 with the class hierarchy that follows; see the unit test
+///                 'AdditionalVoidCast' for a complete example.
+///
+///                 Usage:
+///                     struct A {
+///                         SERIALIZATION(A, FLAGS(SERIALIZATION_POLYMORPHIC_BASE));
+///                     };
+///
+///                     // The problem is introduced because 'B' is declared as data only
+///                     struct B : public A {
+///                         SERIALIZATION(B, BASES(A), FLAGS(SERIALIZATION_DATA_ONLY));
+///                     };
+///
+///                     struct C : public B {
+///                         // This will be enough to support serialization via a pointer to 'A',
+///                         // but isn't enough to serialize via a pointer to 'B'.
+///                         SERIALIZATION(C, BASES(B), FLAGS(SERIALIZATION_POLYMORPHIC(A)));
+///
+///                         // Required to support serialization via a pointer to 'B'
+///                         SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS(C, B);
+///                     };
+///
+///                     SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(A);
+///                     SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(C);
+///
+#define SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS(Name, ...)          SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS_Impl(Name, __VA_ARGS__)
+
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
 // ----------------------------------------------------------------------
@@ -424,17 +454,21 @@ namespace Serialization {
         return PolymorphicSerializationPODUniquePtr(pResult.release());                                         \
     }
 
-#define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)                                                                                                             \
-    /* Functionality that helps to ensure that the required mechanics necessary to support polymorphic */                                                                                                                                       \
-    /* serialization with the boost library are in place for this class. */                                                                                                                                                                     \
-    inline static void SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() (void);                                                                                                                                                               \
-    static void SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() (void);                                                                                                                                                                       \
-                                                                                                                                                                                                                                                \
-    /* RegisterSerializationTypes is invoked in Serialization.suffix.h */                                                                                                                                                                       \
-    BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)()                                                                                                                                     \
-        void RegisterSerializationTypes(void) const                                                                                                                                                                                             \
-            BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))()                                                                                                                            \
-                BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterAbstract, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterConcrete)(Name, PolymorphicBaseName)
+#define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare(Name, IsAbstract, IsPolymorphicBase, PolymorphicBaseName)                                                                                                                 \
+    /* Functionality that helps to ensure that the required mechanics necessary to support polymorphic */                                                                                                                                           \
+    /* serialization with the boost library are in place for this class. */                                                                                                                                                                         \
+    private:                                                                                                                                                                                                                                        \
+        friend class BoostHelpers::Serialization::Details::Access;                                                                                                                                                                                  \
+                                                                                                                                                                                                                                                    \
+        inline static void SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name() (void);                                                                                                                                                               \
+        static void SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name() (void);                                                                                                                                                                       \
+                                                                                                                                                                                                                                                    \
+    public:                                                                                                                                                                                                                                         \
+        /* RegisterSerializationTypes is invoked in Serialization.suffix.h */                                                                                                                                                                       \
+        BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_PP_IDENTITY(virtual), BOOST_VMD_EMPTY)()                                                                                                                                     \
+            void RegisterSerializationTypes(void) const                                                                                                                                                                                             \
+                BOOST_PP_IIF(BOOST_PP_OR(IsAbstract, IsPolymorphicBase), BOOST_VMD_EMPTY, BOOST_PP_IDENTITY(override))()                                                                                                                            \
+                    BOOST_PP_IIF(IsAbstract, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterAbstract, SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterConcrete)(Name, PolymorphicBaseName)
 
 #define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterAbstract(Name, PolymorphicBaseName)   = 0;
 #define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Declare_RegisterConcrete(Name, PolymorphicBaseName)   \
@@ -443,6 +477,8 @@ namespace Serialization {
             static_cast<Name const *>(nullptr),                                                                         \
             static_cast<PolymorphicBaseName const *>(nullptr)                                                           \
         );                                                                                                              \
+                                                                                                                        \
+        BoostHelpers::Serialization::Details::Access::AdditionalVoidCastRegistration(*this);                            \
     }
 
 #define SERIALIZATION_Invoke_PtrMethods_Common_PolymorphicMethods_Invoke()  \
@@ -870,6 +906,17 @@ namespace Serialization {
 #define SERIALIZATION_POLYMORPHIC_DECLARE_Impl_Func_Name()                                              __Ensure_correct_include__See_SERIALIZATION_POLYMORPHIC_DECLARE_for_more_info
 #define SERIALIZATION_POLYMORPHIC_DEFINE_Impl_Func_Name()                                               __Ensure_correct_linkage__See_SERIALIZATION_POLYMORPHIC_DEFINE_for_more_info
 
+#define SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS_Impl(Name, ...)                                             \
+    void AdditionalVoidCastRegistration(void) const {                                                               \
+        BOOST_PP_TUPLE_FOR_EACH(SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS_Impl_Macro, Name, (__VA_ARGS__))    \
+    }
+
+#define SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS_Impl_Macro(r, Name, PolymorphicBaseName)    \
+    boost::serialization::void_cast_register(                                                       \
+        static_cast<Name const *>(nullptr),                                                         \
+        static_cast<PolymorphicBaseName const *>(nullptr)                                           \
+    );
+
 // clang-format on
 
 // ----------------------------------------------------------------------
@@ -899,6 +946,32 @@ struct DelayInitTag {};
 
 // has_SerializationPOD is used in Serialization.suffix.h.
 CREATE_HAS_TYPE_CHECKER(SerializationPOD);
+
+class Access {
+public:
+    // ----------------------------------------------------------------------
+    // |  Public Methods
+    template <typename T>
+    static void AdditionalVoidCastRegistration(T &obj) {
+        AdditionalVoidCastRegistrationImpl(obj, std::integral_constant<bool, has_AdditionalVoidCastRegistration<T>::value>());
+    }
+
+private:
+    // ----------------------------------------------------------------------
+    // |  Private Types
+    CREATE_HAS_METHOD_CHECKER(AdditionalVoidCastRegistration, (void(void)), HAS_METHOD_CHECKER_AS_STATIC_BOOL);
+
+    // ----------------------------------------------------------------------
+    // |  Private Methods
+    template <typename T>
+    static void AdditionalVoidCastRegistrationImpl(T &obj, std::true_type) {
+        obj.AdditionalVoidCastRegistration();
+    }
+
+    template <typename T>
+    static void AdditionalVoidCastRegistrationImpl(T &, std::false_type) {
+    }
+};
 
 // ----------------------------------------------------------------------
 namespace Details {
