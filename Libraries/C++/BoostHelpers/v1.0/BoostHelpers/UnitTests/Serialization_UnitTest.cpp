@@ -490,3 +490,99 @@ TEST_CASE("GetSerializedPtrSize") {
     CHECK(value2 != 0);
     CHECK(value1 != value2);
 }
+
+struct AdditionalVoidCastBase {
+public:
+    int const                               a;
+
+    CONSTRUCTOR(AdditionalVoidCastBase, a);
+    virtual ~AdditionalVoidCastBase(void) = default;
+
+    COMPARE(AdditionalVoidCastBase, a);
+    SERIALIZATION(AdditionalVoidCastBase, MEMBERS(a), FLAGS(SERIALIZATION_POLYMORPHIC_BASE));
+};
+
+struct AdditionalVoidCastDerivedData : public AdditionalVoidCastBase {
+    bool const                              b;
+
+    CONSTRUCTOR(AdditionalVoidCastDerivedData, MEMBERS(b), BASES(AdditionalVoidCastBase));
+    ~AdditionalVoidCastDerivedData(void) override = default;
+
+    COMPARE(AdditionalVoidCastDerivedData, MEMBERS(b), BASES(AdditionalVoidCastBase));
+    SERIALIZATION(AdditionalVoidCastDerivedData, MEMBERS(b), BASES(AdditionalVoidCastBase), FLAGS(SERIALIZATION_DATA_ONLY));
+
+    virtual void Method(void) = 0;
+};
+
+struct AdditionalVoidCastDerived : public AdditionalVoidCastDerivedData {
+    char const                              c;
+
+    CONSTRUCTOR(AdditionalVoidCastDerived, MEMBERS(c), BASES(AdditionalVoidCastDerivedData), FLAGS(CONSTRUCTOR_BASE_ARGS_0(2)));
+    ~AdditionalVoidCastDerived(void) override = default;
+
+    COMPARE(AdditionalVoidCastDerived, MEMBERS(c), BASES(AdditionalVoidCastDerivedData));
+    SERIALIZATION(AdditionalVoidCastDerived, MEMBERS(c), BASES(AdditionalVoidCastDerivedData), FLAGS(SERIALIZATION_POLYMORPHIC(AdditionalVoidCastBase)));
+
+    // The serialization using 'AdditionalVoidCaseDerivedData' will fail at runtime
+    // without this macro.
+    SERIALIZATION_POLYMORPHIC_ADDITIONAL_VOID_CASTS(AdditionalVoidCastDerived, AdditionalVoidCastDerivedData);
+
+    void Method(void) override {}
+};
+
+SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(AdditionalVoidCastBase);
+SERIALIZATION_POLYMORPHIC_DECLARE_AND_DEFINE(AdditionalVoidCastDerived);
+
+TEST_CASE("AdditionalVoidCast") {
+    SECTION("AdditionalVoidCastBase") {
+        std::shared_ptr<AdditionalVoidCastBase> const   ptr(std::make_shared<AdditionalVoidCastDerived>('a', true, 10));
+
+        std::ostringstream                  out;
+
+        boost::archive::text_oarchive(out) << ptr;
+        out.flush();
+
+        std::string                         result(out.str());
+
+        UNSCOPED_INFO(result);
+
+        std::istringstream                              in(result);
+        std::shared_ptr<AdditionalVoidCastBase>         other;
+
+        boost::archive::text_iarchive(in) >> other;
+
+        REQUIRE(dynamic_cast<AdditionalVoidCastDerived *>(other.get()));
+        CHECK(
+            CommonHelpers::Compare(
+                static_cast<AdditionalVoidCastDerived const &>(*ptr),
+                static_cast<AdditionalVoidCastDerived const &>(*other)
+            ) == 0
+        );
+    }
+
+    SECTION("AdditionalVoidCastDerivedData") {
+        std::shared_ptr<AdditionalVoidCastDerivedData> const                ptr(std::make_shared<AdditionalVoidCastDerived>('a', true, 10));
+
+        std::ostringstream                  out;
+
+        boost::archive::text_oarchive(out) << ptr;
+        out.flush();
+
+        std::string                         result(out.str());
+
+        UNSCOPED_INFO(result);
+
+        std::istringstream                                                  in(result);
+        std::shared_ptr<AdditionalVoidCastDerivedData>                      other;
+
+        boost::archive::text_iarchive(in) >> other;
+
+        REQUIRE(dynamic_cast<AdditionalVoidCastDerived *>(other.get()));
+        CHECK(
+            CommonHelpers::Compare(
+                static_cast<AdditionalVoidCastDerived const &>(*ptr),
+                static_cast<AdditionalVoidCastDerived const &>(*other)
+            ) == 0
+        );
+    }
+}
