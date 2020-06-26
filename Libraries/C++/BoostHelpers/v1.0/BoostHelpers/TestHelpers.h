@@ -118,7 +118,7 @@ unsigned char SerializeTest(T const &obj, std::optional<std::function<void (std:
     return 0;
 }
 
-template <typename T, typename DerivedT>
+template <typename T, typename DerivedT/*=typename T::element_type*/>
 unsigned char SerializePtrTest(T const &obj, std::optional<std::function<void (std::string const &)>> const &onSerializedFunc/*=std::nullopt*/) {
     if(Details::SerializePtrTestImpl<boost::archive::text_oarchive, boost::archive::text_iarchive, DerivedT>(obj, onSerializedFunc) == false)
         return 1;
